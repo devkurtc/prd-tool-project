@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { FileText, Plus, Search, Filter, Calendar, User, Tag } from 'lucide-react'
-import { apiClient, PRD, User as UserType } from '../lib/api'
+import { apiClient, type PRD, type User as UserType } from '../lib/api'
 
 interface PRDCardProps {
   prd: PRD

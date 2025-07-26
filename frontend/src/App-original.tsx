@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { FileText, Users, Brain, ArrowRight } from 'lucide-react'
-import { apiClient, User } from './lib/api'
+import { apiClient, type User } from './lib/api'
 import { PRDDashboard } from './components/PRDDashboard'
 
 function App() {
