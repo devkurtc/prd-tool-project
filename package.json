@@ -1,0 +1,44 @@
+{
+  "name": "prd-tool-project",
+  "version": "0.1.0",
+  "description": "AI-powered Product Requirements Document collaboration platform",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:backend": "npm run dev --workspace=backend",
+    "build": "npm run build --workspace=frontend && npm run build --workspace=backend",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "db:migrate": "npm run db:migrate --workspace=backend",
+    "db:seed": "npm run db:seed --workspace=backend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devkurtc/prd-tool-project.git"
+  },
+  "keywords": [
+    "prd",
+    "product-requirements",
+    "collaboration",
+    "ai",
+    "real-time",
+    "markdown"
+  ],
+  "author": "Kurt Carabott",
+  "license": "MIT"
+}
