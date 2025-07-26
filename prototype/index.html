@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRD Tool - Interactive Prototype</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">
+                <i class="fas fa-file-alt"></i>
+                <span>PRD Tool</span>
+            </div>
+            <nav class="breadcrumb">
+                <a href="#" class="breadcrumb-item">Home</a>
+                <span class="breadcrumb-separator">></span>
+                <a href="#" class="breadcrumb-item">Projects</a>
+                <span class="breadcrumb-separator">></span>
+                <span class="breadcrumb-item active">Authentication API</span>
+            </nav>
+        </div>
+        
+        <div class="header-center">
+            <div class="search-bar">
+                <i class="fas fa-search"></i>
+                <input type="text" placeholder="Search PRDs, projects, or people...">
+                <div class="search-suggestions hidden">
+                    <div class="search-suggestion">
+                        <i class="fas fa-file-alt"></i>
+                        <span>SSO Integration PRD</span>
+                    </div>
+                    <div class="search-suggestion">
+                        <i class="fas fa-user"></i>
+                        <span>Sarah Smith</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="header-right">
+            <button class="header-btn" id="notifications-btn">
+                <i class="fas fa-bell"></i>
+                <span class="notification-badge">3</span>
+            </button>
+            <button class="header-btn">
+                <i class="fas fa-cog"></i>
+            </button>
+            <div class="user-menu">
+                <div class="avatar">
+                    <span>JD</span>
+                </div>
+                <div class="user-info">
+                    <span class="user-name">John Doe</span>
+                    <span class="user-role">Product Owner</span>
+                </div>
+                <i class="fas fa-chevron-down"></i>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="main-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <a href="#" class="nav-item active" data-view="dashboard">
+                        <i class="fas fa-home"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="#" class="nav-item" data-view="projects">
+                        <i class="fas fa-folder"></i>
+                        <span>Projects</span>
+                        <span class="nav-badge">12</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="fas fa-file-alt"></i>
+                        <span>Recent PRDs</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="fas fa-star"></i>
+                        <span>Starred Items</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="fas fa-clipboard-list"></i>
+                        <span>Templates</span>
+                    </a>
+                </div>
+                
+                <div class="nav-section">
+                    <h4>Quick Actions</h4>
+                    <button class="btn btn-primary" id="new-prd-btn">
+                        <i class="fas fa-plus"></i>
+                        New PRD
+                    </button>
+                    <button class="btn btn-secondary">
+                        <i class="fas fa-plus"></i>
+                        New Project
+                    </button>
+                </div>
+                
+                <div class="nav-section">
+                    <h4>Recent Activity</h4>
+                    <div class="activity-item">
+                        <div class="avatar small">JD</div>
+                        <div class="activity-content">
+                            <span>John updated</span>
+                            <strong>"Auth PRD"</strong>
+                            <time>2 min ago</time>
+                        </div>
+                    </div>
+                    <div class="activity-item">
+                        <div class="avatar small ai">🤖</div>
+                        <div class="activity-content">
+                            <span>AI generated</span>
+                            <strong>user stories</strong>
+                            <time>5 min ago</time>
+                        </div>
+                    </div>
+                    <div class="activity-item">
+                        <div class="avatar small">SS</div>
+                        <div class="activity-content">
+                            <span>Sarah approved</span>
+                            <strong>"Payment PRD"</strong>
+                            <time>10 min ago</time>
+                        </div>
+                    </div>
+                    <a href="#" class="view-all-link">View All Activity</a>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard View -->
+            <div class="view active" id="dashboard-view">
+                <!-- Welcome Section -->
+                <section class="welcome-section">
+                    <h1>Good morning, John! 👋</h1>
+                    <p>You have 3 PRDs awaiting your review and 2 new AI suggestions.</p>
+                    <div class="welcome-actions">
+                        <button class="btn btn-primary">Review PRDs</button>
+                        <button class="btn btn-secondary">View Suggestions</button>
+                        <button class="btn btn-primary" id="create-prd-btn">Create New PRD</button>
+                    </div>
+                </section>
+
+                <!-- Quick Stats -->
+                <section class="stats-section">
+                    <h2>Quick Stats</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card" data-animate="counter">
+                            <div class="stat-icon">📄</div>
+                            <div class="stat-value" data-target="47">0</div>
+                            <div class="stat-label">Total PRDs</div>
+                            <div class="stat-change positive">+5 this week</div>
+                        </div>
+                        <div class="stat-card" data-animate="counter">
+                            <div class="stat-icon">⏰</div>
+                            <div class="stat-value" data-target="3">0</div>
+                            <div class="stat-label">In Review</div>
+                            <div class="stat-change positive">+1 today</div>
+                        </div>
+                        <div class="stat-card" data-animate="counter">
+                            <div class="stat-icon">✅</div>
+                            <div class="stat-value" data-target="12">0</div>
+                            <div class="stat-label">Approved PRDs</div>
+                            <div class="stat-change positive">+2 today</div>
+                        </div>
+                        <div class="stat-card" data-animate="counter">
+                            <div class="stat-icon">🤖</div>
+                            <div class="stat-value" data-target="156">0</div>
+                            <div class="stat-label">AI Generations</div>
+                            <div class="stat-change positive">+23 this week</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Recent PRDs -->
+                <section class="prds-section">
+                    <div class="section-header">
+                        <h2>Recent PRDs</h2>
+                        <a href="#" class="view-all-link">View All</a>
+                    </div>
+                    <div class="prds-table">
+                        <div class="table-header">
+                            <div class="table-cell">Title</div>
+                            <div class="table-cell">Project</div>
+                            <div class="table-cell">Status</div>
+                            <div class="table-cell">Updated</div>
+                            <div class="table-cell">Actions</div>
+                        </div>
+                        <div class="table-row" id="prd-row-1">
+                            <div class="table-cell">
+                                <div class="prd-title">
+                                    <i class="fas fa-shield-alt"></i>
+                                    <div>
+                                        <strong>SSO Integration PRD</strong>
+                                        <span class="version">v1.2.0</span>
+                                        <div class="collaboration-info">
+                                            <span class="collab-indicator">👤3</span>
+                                            <span class="collab-indicator">💬5</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="table-cell">Auth API</div>
+                            <div class="table-cell">
+                                <span class="status-badge review">Review</span>
+                            </div>
+                            <div class="table-cell">
+                                <time>2h ago</time>
+                                <span class="updated-by">by Sarah</span>
+                            </div>
+                            <div class="table-cell">
+                                <button class="btn btn-sm btn-primary" onclick="openPRDEditor()">Edit</button>
+                                <button class="btn btn-sm btn-secondary">View</button>
+                            </div>
+                        </div>
+                        <div class="table-row">
+                            <div class="table-cell">
+                                <div class="prd-title">
+                                    <i class="fas fa-mobile-alt"></i>
+                                    <div>
+                                        <strong>Push Notifications</strong>
+                                        <span class="version">v1.0.0</span>
+                                        <div class="collaboration-info">
+                                            <span class="collab-indicator">👤1</span>
+                                            <span class="collab-indicator">💬2</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="table-cell">Mobile App</div>
+                            <div class="table-cell">
+                                <span class="status-badge draft">Draft</span>
+                            </div>
+                            <div class="table-cell">
+                                <time>Yesterday</time>
+                                <span class="updated-by">by Mike</span>
+                            </div>
+                            <div class="table-cell">
+                                <button class="btn btn-sm btn-primary">Edit</button>
+                                <button class="btn btn-sm btn-secondary">View</button>
+                            </div>
+                        </div>
+                        <div class="table-row">
+                            <div class="table-cell">
+                                <div class="prd-title">
+                                    <i class="fas fa-credit-card"></i>
+                                    <div>
+                                        <strong>Payment Gateway</strong>
+                                        <span class="version">v2.1.0</span>
+                                        <div class="collaboration-info">
+                                            <span class="collab-indicator">👤4</span>
+                                            <span class="collab-indicator">💬12</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="table-cell">E-commerce</div>
+                            <div class="table-cell">
+                                <span class="status-badge approved">Approved</span>
+                            </div>
+                            <div class="table-cell">
+                                <time>3d ago</time>
+                                <span class="updated-by">by Lisa</span>
+                            </div>
+                            <div class="table-cell">
+                                <button class="btn btn-sm btn-secondary">View</button>
+                                <button class="btn btn-sm btn-secondary">Export</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- PRD Editor View -->
+            <div class="view" id="editor-view">
+                <div class="editor-layout">
+                    <!-- Editor Header -->
+                    <div class="editor-header">
+                        <div class="editor-header-left">
+                            <button class="btn btn-icon" id="back-to-dashboard">
+                                <i class="fas fa-arrow-left"></i>
+                            </button>
+                            <div class="prd-info">
+                                <h1>SSO Integration PRD</h1>
+                                <span class="prd-version">v1.2.0</span>
+                                <span class="status-badge draft">Draft</span>
+                            </div>
+                        </div>
+                        <div class="editor-header-right">
+                            <div class="active-users">
+                                <div class="user-avatar online" title="John Doe (You) - Editing">
+                                    <span>JD</span>
+                                    <div class="status-indicator editing"></div>
+                                </div>
+                                <div class="user-avatar viewing" title="Sarah Smith - Viewing">
+                                    <span>SS</span>
+                                    <div class="status-indicator viewing"></div>
+                                </div>
+                                <div class="user-avatar viewing" title="Mike Johnson - Viewing">
+                                    <span>MJ</span>
+                                    <div class="status-indicator viewing"></div>
+                                </div>
+                                <div class="user-avatar more">+2</div>
+                            </div>
+                            <button class="btn btn-secondary">Share</button>
+                            <button class="btn btn-icon">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Editor Main -->
+                    <div class="editor-main">
+                        <!-- Outline Panel -->
+                        <div class="outline-panel">
+                            <div class="panel-header">
+                                <h3>Outline</h3>
+                                <button class="btn btn-icon">
+                                    <i class="fas fa-cog"></i>
+                                </button>
+                            </div>
+                            <div class="outline-content">
+                                <div class="outline-item active">
+                                    <i class="fas fa-file-alt"></i>
+                                    <span>Executive Summary</span>
+                                    <div class="completion-indicator complete"></div>
+                                </div>
+                                <div class="outline-item">
+                                    <i class="fas fa-question-circle"></i>
+                                    <span>Problem Statement</span>
+                                    <div class="completion-indicator complete"></div>
+                                </div>
+                                <div class="outline-item">
+                                    <i class="fas fa-users"></i>
+                                    <span>User Stories</span>
+                                    <div class="completion-indicator warning"></div>
+                                </div>
+                                <div class="outline-item">
+                                    <i class="fas fa-cogs"></i>
+                                    <span>Technical Requirements</span>
+                                    <div class="completion-indicator pending"></div>
+                                </div>
+                                <div class="outline-item">
+                                    <i class="fas fa-chart-line"></i>
+                                    <span>Success Metrics</span>
+                                    <div class="completion-indicator missing"></div>
+                                </div>
+                                <button class="add-section-btn">
+                                    <i class="fas fa-plus"></i>
+                                    Add Section
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Editor Content -->
+                        <div class="editor-content">
+                            <div class="editor-toolbar">
+                                <div class="toolbar-group">
+                                    <button class="toolbar-btn active">
+                                        <i class="fas fa-edit"></i>
+                                        Edit
+                                    </button>
+                                    <button class="toolbar-btn" id="preview-btn">
+                                        <i class="fas fa-eye"></i>
+                                        Preview
+                                    </button>
+                                    <button class="toolbar-btn">
+                                        <i class="fas fa-columns"></i>
+                                        Split
+                                    </button>
+                                </div>
+                                <div class="toolbar-group">
+                                    <button class="toolbar-btn">
+                                        <i class="fas fa-bold"></i>
+                                    </button>
+                                    <button class="toolbar-btn">
+                                        <i class="fas fa-italic"></i>
+                                    </button>
+                                    <button class="toolbar-btn">
+                                        <i class="fas fa-list-ul"></i>
+                                    </button>
+                                    <button class="toolbar-btn">
+                                        <i class="fas fa-link"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="editor-workspace">
+                                <textarea class="markdown-editor" id="markdown-editor" placeholder="Start writing your PRD..."># SSO Integration PRD
+
+## Executive Summary
+
+Enable seamless authentication for B2B customers through SSO providers including Okta and Azure AD.
+
+### Key Benefits
+- Reduced password fatigue
+- Enhanced security
+- Improved user experience
+
+## Problem Statement
+
+Current authentication requires separate credentials for each customer, causing friction in the user journey and increasing support overhead.
+
+### Customer Impact
+- Increased support tickets (23% of total)
+- User drop-off during registration (12%)
+- Security vulnerabilities with password reuse
+
+## User Stories
+
+**As a** business user  
+**I want** SSO login capabilities  
+**So that** I can access the application without managing separate passwords
+
+**Acceptance Criteria:**
+- [ ] User can select from available SSO providers
+- [ ] Authentication completes in under 30 seconds
+- [ ] User receives confirmation email
+- [ ] Fallback to email/password if SSO fails
+
+## Technical Requirements
+
+The system shall implement OAuth2 authorization code flow with the following specifications:
+
+- Support for SAML 2.0 and OpenID Connect
+- Integration with Okta and Azure AD
+- PKCE support for enhanced security
+- Token refresh mechanism every 15 minutes</textarea>
+                                <div class="typing-indicator hidden">
+                                    <div class="user-typing">
+                                        <span class="typing-user">Sarah is typing...</span>
+                                        <div class="typing-dots">
+                                            <span></span>
+                                            <span></span>
+                                            <span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- AI Assistant Panel -->
+                        <div class="ai-panel" id="ai-panel">
+                            <div class="panel-header">
+                                <h3>
+                                    <i class="fas fa-robot"></i>
+                                    AI Assistant
+                                </h3>
+                                <button class="btn btn-icon" id="toggle-ai-panel">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            
+                            <div class="ai-commands">
+                                <div class="commands-grid">
+                                    <button class="command-btn" data-command="@update">
+                                        <i class="fas fa-edit"></i>
+                                        @update
+                                    </button>
+                                    <button class="command-btn" data-command="@diagram">
+                                        <i class="fas fa-project-diagram"></i>
+                                        @diagram
+                                    </button>
+                                    <button class="command-btn" data-command="@metrics">
+                                        <i class="fas fa-chart-bar"></i>
+                                        @metrics
+                                    </button>
+                                    <button class="command-btn" data-command="@review">
+                                        <i class="fas fa-search"></i>
+                                        @review
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="ai-chat">
+                                <div class="chat-messages">
+                                    <div class="message user-message">
+                                        <div class="message-header">
+                                            <span class="message-author">John</span>
+                                            <time>2 min ago</time>
+                                        </div>
+                                        <div class="message-content">Add OAuth2 support to the technical requirements</div>
+                                    </div>
+                                    
+                                    <div class="message ai-message">
+                                        <div class="message-header">
+                                            <span class="message-author">🤖 AI Assistant</span>
+                                            <time>2 min ago</time>
+                                        </div>
+                                        <div class="message-content">
+                                            I'll add OAuth2 specifications to the technical section:
+                                            
+                                            <div class="generated-content">
+                                                <strong>OAuth2 Integration</strong>
+                                                <ul>
+                                                    <li>Authorization code flow</li>
+                                                    <li>PKCE support for SPAs</li>
+                                                    <li>Token refresh mechanism</li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="message-actions">
+                                                <button class="btn btn-sm btn-success">✅ Accept</button>
+                                                <button class="btn btn-sm btn-secondary">✏️ Edit</button>
+                                                <button class="btn btn-sm btn-danger">❌ Reject</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="chat-input">
+                                    <input type="text" placeholder="Type your prompt..." id="ai-input">
+                                    <button class="btn btn-icon" id="voice-input-btn">
+                                        <i class="fas fa-microphone"></i>
+                                    </button>
+                                    <button class="btn btn-primary" id="send-ai-message">Send</button>
+                                </div>
+                            </div>
+
+                            <div class="ai-suggestions">
+                                <h4>Suggestions</h4>
+                                <div class="suggestion-item">
+                                    <i class="fas fa-lightbulb"></i>
+                                    <span>Add success metrics section</span>
+                                </div>
+                                <div class="suggestion-item">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <span>Consider security requirements</span>
+                                </div>
+                                <div class="suggestion-item">
+                                    <i class="fas fa-project-diagram"></i>
+                                    <span>Create authentication flow diagram</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for New PRD -->
+    <div class="modal hidden" id="new-prd-modal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New PRD</h2>
+                <button class="btn btn-icon" id="close-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="prd-title">PRD Title</label>
+                    <input type="text" id="prd-title" placeholder="Enter PRD title...">
+                </div>
+                <div class="form-group">
+                    <label for="prd-project">Project</label>
+                    <select id="prd-project">
+                        <option>Select a project</option>
+                        <option>Authentication API</option>
+                        <option>Mobile App</option>
+                        <option>E-commerce Platform</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="prd-template">Template</label>
+                    <select id="prd-template">
+                        <option>Standard PRD</option>
+                        <option>API Specification</option>
+                        <option>Mobile Feature</option>
+                        <option>Integration PRD</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="ai-prompt">AI Kickstart (Optional)</label>
+                    <textarea id="ai-prompt" placeholder="Describe what you want to build and AI will help create the initial structure..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancel-prd">Cancel</button>
+                <button class="btn btn-primary" id="create-prd">Create PRD</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Panel -->
+    <div class="notification-panel hidden" id="notification-panel">
+        <div class="panel-header">
+            <h3>Notifications</h3>
+            <span class="notification-count">3 new</span>
+        </div>
+        <div class="notification-list">
+            <div class="notification-item unread">
+                <div class="notification-icon">💬</div>
+                <div class="notification-content">
+                    <strong>New mention in SSO Integration PRD</strong>
+                    <p>Sarah mentioned you in Technical Requirements</p>
+                    <time>2 minutes ago</time>
+                </div>
+            </div>
+            <div class="notification-item unread">
+                <div class="notification-icon">🤖</div>
+                <div class="notification-content">
+                    <strong>AI suggestion ready for review</strong>
+                    <p>New user stories generated for authentication flow</p>
+                    <time>5 minutes ago</time>
+                </div>
+            </div>
+            <div class="notification-item unread">
+                <div class="notification-icon">✅</div>
+                <div class="notification-content">
+                    <strong>PRD approved</strong>
+                    <p>"Payment Gateway PRD v2.0" has been approved</p>
+                    <time>1 hour ago</time>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
