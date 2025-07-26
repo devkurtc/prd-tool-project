@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { logger } from '../utils/logger.js'
+import { getCurrentUser } from '../data/mockData.js'
 
 const router = Router()
 
@@ -27,38 +28,13 @@ const updateProfileSchema = z.object({
 
 // GET /api/users/profile
 router.get('/profile', asyncHandler(async (req: Request, res: Response) => {
-  // TODO: Implement get user profile with authentication middleware
   logger.info('Get user profile request')
+  
+  const user = getCurrentUser()
   
   res.json({
     success: true,
-    data: {
-      user: {
-        id: 'temp-user-id',
-        email: 'temp@example.com',
-        name: 'Temporary User',
-        organization: 'Demo Organization',
-        createdAt: new Date().toISOString(),
-        preferences: {
-          theme: 'system',
-          notifications: {
-            email: true,
-            push: false,
-            mentions: true
-          },
-          editor: {
-            fontSize: 14,
-            tabSize: 2,
-            wordWrap: true
-          }
-        },
-        stats: {
-          prdsCreated: 0,
-          collaborations: 0,
-          aiInteractions: 0
-        }
-      }
-    }
+    data: { user }
   })
 }))
 

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { asyncHandler, createError } from '../middleware/errorHandler.js'
 import { logger } from '../utils/logger.js'
+import { mockPRDs, getPRDById, getPRDsByUser, searchPRDs, getCurrentUser } from '../data/mockData.js'
 
 const router = Router()
 
@@ -38,8 +39,8 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   
   const pageNum = parseInt(page as string)
   const limitNum = parseInt(limit as string)
+  const currentUser = getCurrentUser()
   
-  // TODO: Implement PRD listing with filters and pagination using Prisma
   logger.info('List PRDs request', { 
     page: pageNum, 
     limit: limitNum, 
@@ -49,15 +50,49 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     sortOrder
   })
   
+  // Get user's PRDs with search
+  let prds = search ? searchPRDs(search as string, currentUser.id) : getPRDsByUser(currentUser.id)
+  
+  // Filter by status if specified
+  if (status && status !== 'all') {
+    prds = prds.filter(prd => prd.status === status)
+  }
+  
+  // Filter by tags if specified
+  if (tags) {
+    const tagList = (tags as string).split(',')
+    prds = prds.filter(prd => 
+      tagList.some(tag => prd.tags.includes(tag))
+    )
+  }
+  
+  // Sort PRDs
+  prds.sort((a, b) => {
+    const aValue = sortBy === 'title' ? a.title : a.updatedAt
+    const bValue = sortBy === 'title' ? b.title : b.updatedAt
+    
+    if (sortOrder === 'desc') {
+      return aValue > bValue ? -1 : 1
+    } else {
+      return aValue < bValue ? -1 : 1
+    }
+  })
+  
+  // Paginate results
+  const total = prds.length
+  const totalPages = Math.ceil(total / limitNum)
+  const startIndex = (pageNum - 1) * limitNum
+  const paginatedPRDs = prds.slice(startIndex, startIndex + limitNum)
+  
   res.json({
     success: true,
     data: {
-      prds: [],
+      prds: paginatedPRDs,
       pagination: {
         page: pageNum,
         limit: limitNum,
-        total: 0,
-        totalPages: 0
+        total,
+        totalPages
       },
       filters: {
         status: status || 'all',
@@ -101,32 +136,17 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
 router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params
   
-  // TODO: Implement get PRD by ID with access control
   logger.info('Get PRD request', { prdId: id })
+  
+  const prd = getPRDById(id)
+  
+  if (!prd) {
+    throw createError.notFound('PRD not found')
+  }
   
   res.json({
     success: true,
-    data: {
-      prd: {
-        id,
-        title: 'Sample PRD',
-        description: 'A sample PRD for development',
-        content: '# Sample PRD\n\nThis is a sample PRD content.',
-        status: 'DRAFT',
-        isPublic: false,
-        tags: ['sample', 'development'],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        author: {
-          id: 'temp-user-id',
-          name: 'Temporary User',
-          email: 'temp@example.com'
-        },
-        collaborators: [],
-        versions: [],
-        comments: []
-      }
-    }
+    data: { prd }
   })
 }))
 
