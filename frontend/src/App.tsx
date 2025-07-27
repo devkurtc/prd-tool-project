@@ -1,31 +1,42 @@
 import { useState, useEffect } from 'react'
-import { FileText, Users, Brain, ArrowRight } from 'lucide-react'
-import { apiClient, type User } from './lib/api'
+import { FileText, Users, Brain, ArrowRight, LogOut } from 'lucide-react'
+import { apiClient } from './lib/api'
 import { PRDDashboard } from './components/PRDDashboard'
+import { LoginForm } from './components/LoginForm'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 
-function App() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+function LogoutButton() {
+  const { logout } = useAuth()
+  
+  return (
+    <button
+      onClick={logout}
+      className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center"
+    >
+      <LogOut className="w-4 h-4 mr-2" />
+      Logout
+    </button>
+  )
+}
+
+function AppContent() {
+  const { user, isLoading, isAuthenticated } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [showDashboard, setShowDashboard] = useState(false)
+  const [isRegisterMode, setIsRegisterMode] = useState(false)
 
   useEffect(() => {
-    loadUserProfile()
     checkBackendHealth()
   }, [])
 
-  const loadUserProfile = async () => {
-    try {
-      const response = await apiClient.getUserProfile()
-      if (response.success && response.data) {
-        setUser(response.data.user)
-      }
-    } catch (err) {
-      console.error('Error loading user profile:', err)
-      setError('Failed to load user profile')
-    } finally {
-      setLoading(false)
-    }
+  // Show login form if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <LoginForm 
+        isRegisterMode={isRegisterMode}
+        onToggleMode={() => setIsRegisterMode(!isRegisterMode)}
+      />
+    )
   }
 
   const checkBackendHealth = async () => {
@@ -37,7 +48,7 @@ function App() {
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -131,12 +142,15 @@ function App() {
             <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md">
               <p className="text-green-800 font-medium">✅ Connected to Backend!</p>
               <p className="text-green-600 text-sm">Logged in as: {user.name} ({user.email})</p>
-              <button
-                onClick={() => setShowDashboard(true)}
-                className="mt-3 button-primary px-4 py-2 flex items-center mx-auto"
-              >
-                View PRD Dashboard <ArrowRight className="w-4 h-4 ml-2" />
-              </button>
+              <div className="mt-3 flex gap-2 justify-center">
+                <button
+                  onClick={() => setShowDashboard(true)}
+                  className="button-primary px-4 py-2 flex items-center"
+                >
+                  View PRD Dashboard <ArrowRight className="w-4 h-4 ml-2" />
+                </button>
+                <LogoutButton />
+              </div>
             </div>
           )}
           
@@ -146,20 +160,21 @@ function App() {
               <ul className="text-sm text-muted-foreground space-y-1">
                 <li>• Project documentation and specifications</li>
                 <li>• Development environment setup</li>
-                <li>• Frontend Vite + React foundation</li>
-                <li>• Backend Express.js with TypeScript</li>
-                <li>• Mock data and API integration</li>
-                <li>• PRD Dashboard with real data</li>
+                <li>• Backend Express.js with TypeScript + Database</li>
+                <li>• JWT Authentication system</li>
+                <li>• Swagger API documentation</li>
+                <li>• Automated testing (17+ tests)</li>
+                <li>• Frontend authentication integration</li>
               </ul>
             </div>
             <div>
               <h4 className="font-semibold text-blue-600 mb-2">🔄 Coming Next</h4>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Database with Prisma schema</li>
-                <li>• Authentication system</li>
                 <li>• Monaco Editor integration</li>
                 <li>• Real-time collaboration</li>
                 <li>• AI-powered features</li>
+                <li>• Version control workflow</li>
+                <li>• Advanced PRD templates</li>
               </ul>
             </div>
           </div>
@@ -173,6 +188,14 @@ function App() {
         </div>
       </footer>
     </div>
+  )
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   )
 }
 

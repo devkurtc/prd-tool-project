@@ -16,26 +16,54 @@ export interface User {
   id: string
   email: string
   name: string
-  organization: string
+  avatarUrl?: string
+  isActive: boolean
+  lastLoginAt?: string
   createdAt: string
-  preferences: {
-    theme: 'light' | 'dark' | 'system'
-    notifications: {
-      email: boolean
-      push: boolean
-      mentions: boolean
-    }
-    editor: {
-      fontSize: number
-      tabSize: number
-      wordWrap: boolean
-    }
-  }
   stats: {
     prdsCreated: number
     collaborations: number
     aiInteractions: number
   }
+}
+
+export interface AuthResponse {
+  success: boolean
+  data: {
+    user: User
+    token: string
+  }
+  message: string
+}
+
+export interface LoginRequest {
+  email: string
+  password: string
+}
+
+export interface RegisterRequest {
+  email: string
+  name: string
+  password: string
+}
+
+export interface AISuggestion {
+  type: 'replacement' | 'addition' | 'summary' | 'suggestions' | 'analysis' | 'general'
+  title: string
+  content: string
+  confidence: number
+}
+
+export interface AICommand {
+  command: string
+  description: string
+  examples: string[]
+}
+
+export interface Selection {
+  startLine: number
+  endLine: number
+  text: string
 }
 
 export interface PRD {
@@ -86,12 +114,29 @@ export interface PRDListResponse {
 class ApiClient {
   private baseURL: string
   private defaultHeaders: HeadersInit
+  private token: string | null = null
 
   constructor() {
     this.baseURL = API_BASE_URL
     this.defaultHeaders = {
       'Content-Type': 'application/json',
     }
+    // Load token from localStorage if available
+    this.token = localStorage.getItem('auth_token')
+  }
+
+  setAuthToken(token: string) {
+    this.token = token
+    localStorage.setItem('auth_token', token)
+  }
+
+  clearAuthToken() {
+    this.token = null
+    localStorage.removeItem('auth_token')
+  }
+
+  getAuthToken(): string | null {
+    return this.token
   }
 
   private async request<T>(
@@ -100,11 +145,18 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`
     
+    const headers: HeadersInit = {
+      ...this.defaultHeaders,
+      ...options.headers,
+    }
+
+    // Add auth token if available
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`
+    }
+    
     const config: RequestInit = {
-      headers: {
-        ...this.defaultHeaders,
-        ...options.headers,
-      },
+      headers,
       ...options,
     }
 
@@ -127,6 +179,50 @@ class ApiClient {
   // Health check
   async healthCheck() {
     return this.request<any>('/health')
+  }
+
+  // Authentication endpoints
+  async register(userData: RegisterRequest): Promise<AuthResponse> {
+    const response = await this.request<AuthResponse['data']>('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    })
+    
+    // Set token if registration successful
+    if (response.success && response.data?.token) {
+      this.setAuthToken(response.data.token)
+    }
+    
+    return response as AuthResponse
+  }
+
+  async login(credentials: LoginRequest): Promise<AuthResponse> {
+    const response = await this.request<AuthResponse['data']>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    })
+    
+    // Set token if login successful
+    if (response.success && response.data?.token) {
+      this.setAuthToken(response.data.token)
+    }
+    
+    return response as AuthResponse
+  }
+
+  async logout() {
+    const response = await this.request<void>('/api/auth/logout', {
+      method: 'POST',
+    })
+    
+    // Clear token regardless of response
+    this.clearAuthToken()
+    
+    return response
+  }
+
+  async getCurrentUser() {
+    return this.request<{ user: User }>('/api/auth/me')
   }
 
   // User endpoints
@@ -205,11 +301,22 @@ class ApiClient {
   }
 
   // AI assistance
-  async getAIAssistance(prdId: string, prompt: string, type = 'general') {
-    return this.request<any>(`/api/prds/${prdId}/ai-assist`, {
+  async getAISuggestion(prdId: string, command: string, context?: string, selection?: Selection) {
+    return this.request<{ suggestions: AISuggestion[]; command: string; description: string; timestamp: string }>('/api/ai/suggestion', {
       method: 'POST',
-      body: JSON.stringify({ prompt, type }),
+      body: JSON.stringify({ prdId, command, context, selection }),
     })
+  }
+
+  async generateAIContent(prompt: string, type: 'content' | 'section' | 'improvement' | 'analysis', context?: string) {
+    return this.request<{ content: string; type: string; timestamp: string }>('/api/ai/generate', {
+      method: 'POST',
+      body: JSON.stringify({ prompt, type, context }),
+    })
+  }
+
+  async getAICommands() {
+    return this.request<{ commands: AICommand[] }>('/api/ai/commands')
   }
 }
 
