@@ -354,7 +354,11 @@ class ApiClient {
   }
 
   async getAICommands() {
-    return this.request<{ commands: AICommand[] }>('/api/ai/commands')
+    return this.request<{ commands: AICommand[]; provider: string; availableProviders: string[] }>('/api/ai/commands')
+  }
+
+  async getAIStatus() {
+    return this.request<{ currentProvider: string; availableProviders: string[]; timestamp: string }>('/api/ai/status')
   }
 }
 
