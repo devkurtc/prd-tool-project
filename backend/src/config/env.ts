@@ -13,10 +13,10 @@ const envSchema = z.object({
   PORT: z.string().default('3001').transform(Number),
   
   // Database
-  DATABASE_URL: z.string().url(),
+  DATABASE_URL: z.string().min(1),
   
   // Redis
-  REDIS_URL: z.string().url(),
+  REDIS_URL: z.string().min(1),
   
   // JWT
   JWT_SECRET: z.string().min(32),
@@ -31,10 +31,10 @@ const envSchema = z.object({
   SMTP_PORT: z.string().default('1025').transform(Number),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  SMTP_FROM: z.string().email().default('noreply@prdtool.local'),
+  SMTP_FROM: z.string().default('noreply@prdtool.local'),
   
   // Frontend
-  FRONTEND_URL: z.string().url().default('http://localhost:5173'),
+  FRONTEND_URL: z.string().default('http://localhost:5173'),
   
   // Logging
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),

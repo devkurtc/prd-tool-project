@@ -31,8 +31,8 @@ export const authenticateToken = async (
       })
     }
 
-    // Try JWT first
-    if (token.length < 100) { // JWT tokens are typically shorter
+    // Try JWT first (JWT tokens contain dots)
+    if (token.includes('.')) {
       const decoded = await authService.verifyToken(token)
       
       if (!decoded) {
@@ -64,7 +64,7 @@ export const authenticateToken = async (
         avatarUrl: user.avatarUrl
       }
     } else {
-      // Try session token
+      // Try session token (hex string without dots)
       const user = await authService.validateSession(token)
       
       if (!user) {
@@ -104,9 +104,27 @@ export const optionalAuth = async (
     const token = authHeader && authHeader.split(' ')[1]
 
     if (token) {
-      const decoded = await authService.verifyToken(token)
-      if (decoded) {
-        req.user = decoded
+      // Try JWT first (JWT tokens contain dots)
+      if (token.includes('.')) {
+        const decoded = await authService.verifyToken(token)
+        if (decoded) {
+          const user = await authService.getUserById(decoded.userId)
+          if (user && user.isActive) {
+            req.user = {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              avatarUrl: user.avatarUrl
+            }
+          }
+        }
+      } else {
+        // Try session token
+        const user = await authService.validateSession(token)
+        if (user) {
+          req.user = user
+          req.session = token
+        }
       }
     }
 
