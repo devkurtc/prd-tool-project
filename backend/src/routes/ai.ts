@@ -13,7 +13,7 @@ router.use(authenticateToken)
 
 // Validation schemas
 const aiSuggestionSchema = z.object({
-  prdId: z.string().uuid('Invalid PRD ID'),
+  prdId: z.string().min(1, 'PRD ID is required'),
   command: z.string().min(1, 'Command is required'),
   context: z.string().optional(),
   selection: z.object({
