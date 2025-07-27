@@ -726,25 +726,94 @@ router.post('/:id/collaborate', asyncHandler(async (req: AuthenticatedRequest, r
 }))
 
 // GET /api/prds/:id/versions - Get PRD versions
-router.get('/:id/versions', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+router.get('/:id/versions', authenticateToken, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params
   const { page = '1', limit = '10' } = req.query
+  const userId = req.user?.userId
   
-  // TODO: Implement version history retrieval
-  logger.info('Get PRD versions request', { prdId: id })
+  logger.info('Get PRD versions request', { prdId: id, userId })
   
-  res.json({
-    success: true,
-    data: {
-      versions: [],
-      pagination: {
-        page: parseInt(page as string),
-        limit: parseInt(limit as string),
-        total: 0,
-        totalPages: 0
+  try {
+    // Check if user has access to PRD
+    const prd = await prisma.pRD.findFirst({
+      where: {
+        id,
+        OR: [
+          { authorId: userId },
+          { isPublic: true }
+        ]
       }
+    })
+
+    if (!prd) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'PRD_NOT_FOUND',
+          message: 'PRD not found or access denied'
+        }
+      })
     }
-  })
+
+    const pageNum = parseInt(page as string)
+    const limitNum = parseInt(limit as string)
+    const skip = (pageNum - 1) * limitNum
+
+    // Get total count
+    const total = await prisma.pRDVersion.count({
+      where: { prdId: id }
+    })
+
+    // Get versions with author info
+    const versions = await prisma.pRDVersion.findMany({
+      where: { prdId: id },
+      orderBy: { version: 'desc' },
+      skip,
+      take: limitNum,
+      include: {
+        prd: {
+          select: {
+            author: {
+              select: { id: true, name: true, email: true }
+            }
+          }
+        }
+      }
+    })
+
+    // Format versions
+    const formattedVersions = versions.map(v => ({
+      id: v.id,
+      version: v.version,
+      content: v.content,
+      changeLog: v.changeLog,
+      createdAt: v.createdAt.toISOString(),
+      author: v.prd.author
+    }))
+
+    res.json({
+      success: true,
+      data: {
+        versions: formattedVersions,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          totalPages: Math.ceil(total / limitNum)
+        }
+      }
+    })
+
+  } catch (error) {
+    logger.error('Error fetching PRD versions:', error)
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'FETCH_FAILED',
+        message: 'Failed to fetch versions'
+      }
+    })
+  }
 }))
 
 // POST /api/prds/:id/ai-assist - AI assistance for PRD

@@ -4,6 +4,10 @@ import { Save, FileText, Users, ChevronRight, Circle, Bot } from 'lucide-react'
 import { apiClient, type PRD, type User, type AISuggestion, type Selection } from '../lib/api'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { AIAssistant } from './AIAssistant'
+import { CollaborationIndicator } from './CollaborationIndicator'
+import { CollaborativeEditor } from '../lib/collaborativeEditor'
+import { VersionHistory } from './VersionHistory'
+import { DiffViewer } from './DiffViewer'
 
 interface PRDEditorProps {
   prdId: string
@@ -21,15 +25,20 @@ export function PRDEditor({ prdId, user, onBack }: PRDEditorProps) {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [showAI, setShowAI] = useState(false)
   const [currentSelection, setCurrentSelection] = useState<Selection | undefined>()
+  const [documentVersion, setDocumentVersion] = useState(0)
+  const [showVersionHistory, setShowVersionHistory] = useState(false)
+  const [compareVersions, setCompareVersions] = useState<any[] | null>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
   const editorRef = useRef<any>(null)
+  const collaborativeEditorRef = useRef<CollaborativeEditor | null>(null)
   
   const { 
     isConnected, 
     activeUsers, 
     joinPRD, 
     leavePRD, 
-    updateCursorPosition
+    updateCursorPosition,
+    socket
   } = useWebSocket({ user })
 
   useEffect(() => {
@@ -41,6 +50,9 @@ export function PRDEditor({ prdId, user, onBack }: PRDEditorProps) {
     return () => {
       if (isConnected) {
         leavePRD(prdId)
+      }
+      if (collaborativeEditorRef.current) {
+        collaborativeEditorRef.current.dispose()
       }
     }
   }, [prdId, isConnected, joinPRD, leavePRD])
@@ -112,7 +124,12 @@ export function PRDEditor({ prdId, user, onBack }: PRDEditorProps) {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current)
     }
-    savePRD()
+    // If using collaborative editor, save through it
+    if (collaborativeEditorRef.current) {
+      collaborativeEditorRef.current.saveDocument()
+    } else {
+      savePRD()
+    }
   }
 
   const handleOpenAI = () => {
@@ -300,6 +317,9 @@ export function PRDEditor({ prdId, user, onBack }: PRDEditorProps) {
         </div>
       </header>
 
+      {/* Collaboration Indicator */}
+      <CollaborationIndicator activeUsers={activeUsers} currentUserId={user.id} />
+      
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}
@@ -322,6 +342,19 @@ export function PRDEditor({ prdId, user, onBack }: PRDEditorProps) {
               <button className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 flex items-center space-x-2">
                 <ChevronRight className="h-4 w-4" />
                 <span className="text-sm">Technical Specs</span>
+              </button>
+            </div>
+            
+            {/* Version History Button */}
+            <div className="mt-8 pt-8 border-t">
+              <button
+                onClick={() => setShowVersionHistory(!showVersionHistory)}
+                className="w-full text-left px-3 py-2 rounded bg-gray-50 hover:bg-gray-100 flex items-center justify-between"
+              >
+                <span className="text-sm font-medium">Version History</span>
+                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                  v{documentVersion}
+                </span>
               </button>
             </div>
 
@@ -377,14 +410,16 @@ export function PRDEditor({ prdId, user, onBack }: PRDEditorProps) {
             onMount={(editor) => {
               editorRef.current = editor
               
-              // Track cursor position changes
-              editor.onDidChangeCursorPosition((e) => {
-                const position = e.position
-                updateCursorPosition(prdId, {
-                  line: position.lineNumber,
-                  column: position.column
+              // Initialize collaborative editing if connected
+              if (isConnected && socket) {
+                collaborativeEditorRef.current = new CollaborativeEditor({
+                  editor,
+                  socket,
+                  prdId,
+                  userId: user.id,
+                  onVersionChange: setDocumentVersion
                 })
-              })
+              }
             }}
             theme="vs"
             options={{
@@ -418,6 +453,35 @@ export function PRDEditor({ prdId, user, onBack }: PRDEditorProps) {
         selection={currentSelection}
         onApplySuggestion={handleApplySuggestion}
       />
+      
+      {/* Version History Panel */}
+      {showVersionHistory && (
+        <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-xl border-l z-40 transform transition-transform">
+          <VersionHistory
+            prdId={prdId}
+            currentVersion={documentVersion}
+            onVersionSelect={(version) => {
+              // Load the selected version into editor
+              setContent(version.content)
+              setDocumentVersion(version.version)
+              setShowVersionHistory(false)
+            }}
+            onCompare={(v1, v2) => {
+              setCompareVersions([v1, v2])
+              setShowVersionHistory(false)
+            }}
+          />
+        </div>
+      )}
+      
+      {/* Diff Viewer Modal */}
+      {compareVersions && compareVersions.length === 2 && (
+        <DiffViewer
+          version1={compareVersions[0]}
+          version2={compareVersions[1]}
+          onClose={() => setCompareVersions(null)}
+        />
+      )}
     </div>
   )
 }

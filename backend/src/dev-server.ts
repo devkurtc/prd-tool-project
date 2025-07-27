@@ -2,6 +2,7 @@ import 'dotenv/config'
 import { createServer } from 'http'
 import { logger } from './utils/logger.js'
 import { app } from './app.js'
+import { SocketManager } from './websocket/socketManager.js'
 
 // Minimal environment setup for development
 process.env.NODE_ENV = process.env.NODE_ENV || 'development'
@@ -11,11 +12,15 @@ process.env.DATABASE_URL = process.env.DATABASE_URL || 'file:./dev.db'
 const httpServer = createServer(app)
 const PORT = process.env.PORT || 3001
 
+// Initialize WebSocket server
+const socketManager = new SocketManager(httpServer)
+
 httpServer.listen(PORT, () => {
   logger.info(`🚀 Development server running on port ${PORT}`)
   logger.info(`📊 Health check: http://localhost:${PORT}/health`)
   logger.info(`📚 API Documentation: http://localhost:${PORT}/api-docs`)
   logger.info(`📄 OpenAPI Spec: http://localhost:${PORT}/api-docs.json`)
+  logger.info(`🔌 WebSocket server enabled`)
   logger.info(`🛡️  Security headers enabled`)
   logger.info(`⚡ Environment: ${process.env.NODE_ENV}`)
 })
