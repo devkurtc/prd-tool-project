@@ -1,0 +1,455 @@
+// Prisma Schema for PRD Tool
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Core Models
+
+model User {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  name        String
+  avatarUrl   String?   @map("avatar_url")
+  role        UserRole  @default(MEMBER)
+  permissions String[]  @default([])
+  isActive    Boolean   @default(true) @map("is_active")
+  lastLoginAt DateTime? @map("last_login_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  organizationMembers OrganizationMember[]
+  createdProjects     Project[]            @relation("ProjectCreator")
+  createdPrds         Prd[]                @relation("PrdCreator")
+  approvedPrds        Prd[]                @relation("PrdApprover")
+  prdVersions         PrdVersion[]
+  activeSessions      ActiveSession[]
+  collaborationEvents CollaborationEvent[]
+  aiInteractions      AiInteraction[]
+  aiSuggestions       AiSuggestion[]       @relation("SuggestionApprover")
+  activityLogs        ActivityLog[]
+  auditTrails         AuditTrail[]
+  notifications       Notification[]
+  createdTemplates    PrdTemplate[]
+  createdIntegrations Integration[]
+
+  @@map("users")
+}
+
+model Organization {
+  id               String  @id @default(cuid())
+  name             String
+  slug             String  @unique
+  settings         Json    @default("{}")
+  subscriptionTier String  @default("free") @map("subscription_tier")
+  isActive         Boolean @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  members       OrganizationMember[]
+  projects      Project[]
+  prdTemplates  PrdTemplate[]
+  integrations  Integration[]
+  activityLogs  ActivityLog[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  organizationId String   @map("organization_id")
+  userId         String   @map("user_id")
+  role           String   @default("member")
+  joinedAt       DateTime @default(now()) @map("joined_at")
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, userId])
+  @@map("organization_members")
+}
+
+model Project {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  name           String
+  slug           String
+  description    String?
+  settings       Json    @default("{}")
+  gitRepoUrl     String? @map("git_repo_url")
+  isArchived     Boolean @default(false) @map("is_archived")
+  createdBy      String  @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator      User         @relation("ProjectCreator", fields: [createdBy], references: [id])
+  prds         Prd[]
+
+  @@unique([organizationId, slug])
+  @@map("projects")
+}
+
+model Prd {
+  id             String       @id @default(cuid())
+  projectId      String       @map("project_id")
+  title          String
+  slug           String
+  currentVersion String       @default("1.0.0") @map("current_version")
+  content        String?
+  metadata       Json         @default("{}")
+  status         PrdStatus    @default(DRAFT)
+  templateId     String?      @map("template_id")
+  createdBy      String       @map("created_by")
+  approvedBy     String?      @map("approved_by")
+  approvedAt     DateTime?    @map("approved_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  project             Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  template            PrdTemplate?         @relation(fields: [templateId], references: [id])
+  creator             User                 @relation("PrdCreator", fields: [createdBy], references: [id])
+  approver            User?                @relation("PrdApprover", fields: [approvedBy], references: [id])
+  versions            PrdVersion[]
+  activeSessions      ActiveSession[]
+  collaborationEvents CollaborationEvent[]
+  aiInteractions      AiInteraction[]
+  aiSuggestions       AiSuggestion[]
+  integrationMappings IntegrationMapping[]
+  crdtOperations      CrdtOperation[]
+
+  @@unique([projectId, slug])
+  @@map("prds")
+}
+
+model PrdVersion {
+  id          String   @id @default(cuid())
+  prdId       String   @map("prd_id")
+  version     String
+  content     String
+  changelog   String?
+  metadata    Json     @default("{}")
+  commitHash  String?  @map("commit_hash")
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  prd     Prd  @relation(fields: [prdId], references: [id], onDelete: Cascade)
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@unique([prdId, version])
+  @@map("prd_versions")
+}
+
+model PrdTemplate {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  name           String
+  description    String?
+  structure      Json
+  isDefault      Boolean @default(false) @map("is_default")
+  createdBy      String  @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator      User         @relation(fields: [createdBy], references: [id])
+  prds         Prd[]
+
+  @@map("prd_templates")
+}
+
+// CRDT Operations for Real-time Collaboration
+model CrdtOperation {
+  id            String   @id @default(cuid())
+  prdId         String   @map("prd_id")
+  userId        String   @map("user_id")
+  operationType String   @map("operation_type") // insert, delete, retain, format
+  vectorClock   Json     @map("vector_clock")   // Vector clock for ordering
+  operationData Json     @map("operation_data") // Operation details
+  position      Int                             // Position in document
+  length        Int?                            // Length for delete/retain operations
+  content       String?                         // Content for insert operations
+  attributes    Json?                           // Formatting attributes
+  isApplied     Boolean  @default(false) @map("is_applied")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  prd  Prd  @relation(fields: [prdId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([prdId, createdAt])
+  @@index([prdId, isApplied])
+  @@map("crdt_operations")
+}
+
+// Collaboration Models
+model ActiveSession {
+  id               String   @id @default(cuid())
+  userId           String   @map("user_id")
+  prdId            String   @map("prd_id")
+  status           String   // viewing, editing, ai-prompting
+  cursorPosition   Int?     @map("cursor_position")
+  selectionStart   Int?     @map("selection_start")
+  selectionEnd     Int?     @map("selection_end")
+  socketId         String?  @map("socket_id")
+  joinedAt         DateTime @default(now()) @map("joined_at")
+  lastActivityAt   DateTime @default(now()) @map("last_activity_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prd  Prd  @relation(fields: [prdId], references: [id], onDelete: Cascade)
+
+  @@map("active_sessions")
+}
+
+model CollaborationEvent {
+  id        String   @id @default(cuid())
+  prdId     String   @map("prd_id")
+  userId    String   @map("user_id")
+  eventType String   @map("event_type") // edit, comment, ai_prompt, etc.
+  eventData Json     @map("event_data")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  prd  Prd  @relation(fields: [prdId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([prdId, createdAt])
+  @@map("collaboration_events")
+}
+
+// AI Integration Models
+model AiInteraction {
+  id             String          @id @default(cuid())
+  prdId          String          @map("prd_id")
+  userId         String          @map("user_id")
+  prompt         String
+  promptTokens   Int?            @map("prompt_tokens")
+  response       String?
+  responseTokens Int?            @map("response_tokens")
+  model          String?
+  status         AiStatus        @default(PENDING)
+  errorMessage   String?         @map("error_message")
+  durationMs     Int?            @map("duration_ms")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  completedAt    DateTime?       @map("completed_at")
+
+  // Relations
+  prd         Prd            @relation(fields: [prdId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  suggestions AiSuggestion[]
+
+  @@map("ai_interactions")
+}
+
+model AiSuggestion {
+  id             String    @id @default(cuid())
+  prdId          String    @map("prd_id")
+  interactionId  String    @map("interaction_id")
+  suggestionType String    @map("suggestion_type") // content, diagram, metrics, etc.
+  content        String
+  metadata       Json      @default("{}")
+  accepted       Boolean?
+  acceptedBy     String?   @map("accepted_by")
+  acceptedAt     DateTime? @map("accepted_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  prd         Prd           @relation(fields: [prdId], references: [id], onDelete: Cascade)
+  interaction AiInteraction @relation(fields: [interactionId], references: [id], onDelete: Cascade)
+  approver    User?         @relation("SuggestionApprover", fields: [acceptedBy], references: [id])
+
+  @@map("ai_suggestions")
+}
+
+// Activity and Audit Models
+model ActivityLog {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  userId         String?  @map("user_id")
+  resourceType   String   @map("resource_type") // prd, project, user, etc.
+  resourceId     String   @map("resource_id")
+  action         String   // created, updated, deleted, etc.
+  changes        Json?
+  ipAddress      String?  @map("ip_address")
+  userAgent      String?  @map("user_agent")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([resourceType, resourceId])
+  @@map("activity_logs")
+}
+
+model AuditTrail {
+  id        String   @id @default(cuid())
+  tableName String   @map("table_name")
+  recordId  String   @map("record_id")
+  operation String   // INSERT, UPDATE, DELETE
+  oldData   Json?    @map("old_data")
+  newData   Json?    @map("new_data")
+  changedBy String?  @map("changed_by")
+  changedAt DateTime @default(now()) @map("changed_at")
+
+  // Relations
+  user User? @relation(fields: [changedBy], references: [id])
+
+  @@index([tableName, recordId])
+  @@index([changedAt])
+  @@map("audit_trails")
+}
+
+// Integration Models
+model Integration {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  type           String    // jira, confluence, slack, mattermost, teams, craft, etc.
+  config         Json      // encrypted sensitive data
+  isActive       Boolean   @default(true) @map("is_active")
+  lastSyncAt     DateTime? @map("last_sync_at")
+  createdBy      String    @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator      User                 @relation(fields: [createdBy], references: [id])
+  mappings     IntegrationMapping[]
+
+  @@unique([organizationId, type])
+  @@map("integrations")
+}
+
+model IntegrationMapping {
+  id            String    @id @default(cuid())
+  integrationId String    @map("integration_id")
+  prdId         String    @map("prd_id")
+  externalId    String    @map("external_id")
+  externalType  String?   @map("external_type") // issue, page, etc.
+  syncStatus    String    @default("pending") @map("sync_status")
+  lastSyncedAt  DateTime? @map("last_synced_at")
+  syncError     String?   @map("sync_error")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  integration Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  prd         Prd         @relation(fields: [prdId], references: [id], onDelete: Cascade)
+
+  @@map("integration_mappings")
+}
+
+// Notification Models
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  type      String
+  title     String
+  message   String?
+  data      Json      @default("{}")
+  isRead    Boolean   @default(false) @map("is_read")
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  userId    String  @map("user_id")
+  channel   String  // email, in-app, slack, mattermost, teams
+  eventType String  @map("event_type") // prd_created, comment_added, etc.
+  enabled   Boolean @default(true)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, channel, eventType])
+  @@map("notification_preferences")
+}
+
+// Performance Metrics Models
+model PerformanceMetric {
+  id        String   @id @default(cuid())
+  endpoint  String
+  method    String
+  duration  Int      // milliseconds
+  status    Int
+  userId    String?  @map("user_id")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([endpoint, createdAt])
+  @@index([createdAt])
+  @@map("performance_metrics")
+}
+
+model UsageMetric {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  action       String   // ai_prompt, prd_created, export, etc.
+  resourceType String?  @map("resource_type")
+  resourceId   String?  @map("resource_id")
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@map("usage_metrics")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  MEMBER
+  VIEWER
+
+  @@map("user_role")
+}
+
+enum PrdStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  ARCHIVED
+
+  @@map("prd_status")
+}
+
+enum AiStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+
+  @@map("ai_status")
+}
+
+// Add missing relation
+model User {
+  // ... existing fields ...
+  
+  crdtOperations      CrdtOperation[]
+  notificationPrefs   NotificationPreference[]
+  
+  // ... existing relations ...
+}

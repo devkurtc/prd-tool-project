@@ -29,11 +29,16 @@ export interface User {
 
 export interface AuthResponse {
   success: boolean
-  data: {
+  data?: {
     user: User
     token: string
   }
-  message: string
+  message?: string
+  error?: {
+    code: string
+    message: string
+    details?: any
+  }
 }
 
 export interface LoginRequest {
@@ -145,19 +150,24 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`
     
-    const headers: HeadersInit = {
-      ...this.defaultHeaders,
-      ...options.headers,
+    const headers = new Headers(this.defaultHeaders)
+    
+    // Add headers from options if provided
+    if (options.headers) {
+      const optionHeaders = new Headers(options.headers)
+      optionHeaders.forEach((value, key) => {
+        headers.set(key, value)
+      })
     }
 
     // Add auth token if available
     if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`
+      headers.set('Authorization', `Bearer ${this.token}`)
     }
     
     const config: RequestInit = {
-      headers,
       ...options,
+      headers,
     }
 
     try {

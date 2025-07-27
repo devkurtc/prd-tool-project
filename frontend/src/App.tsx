@@ -21,9 +21,17 @@ function LogoutButton() {
 
 function AppContent() {
   const { user, isLoading, isAuthenticated } = useAuth()
-  const [error, setError] = useState<string | null>(null)
   const [showDashboard, setShowDashboard] = useState(false)
   const [isRegisterMode, setIsRegisterMode] = useState(false)
+
+  const checkBackendHealth = async () => {
+    try {
+      const response = await apiClient.healthCheck()
+      console.log('Backend health check:', response)
+    } catch (err) {
+      console.error('Backend health check failed:', err)
+    }
+  }
 
   useEffect(() => {
     checkBackendHealth()
@@ -37,15 +45,6 @@ function AppContent() {
         onToggleMode={() => setIsRegisterMode(!isRegisterMode)}
       />
     )
-  }
-
-  const checkBackendHealth = async () => {
-    try {
-      const response = await apiClient.healthCheck()
-      console.log('Backend health check:', response)
-    } catch (err) {
-      console.error('Backend health check failed:', err)
-    }
   }
 
   if (isLoading) {
@@ -130,13 +129,6 @@ function AppContent() {
         {/* Status & Demo */}
         <div className="card p-6 text-center">
           <h3 className="text-2xl font-semibold mb-4">Development Status</h3>
-          
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-red-800 text-sm">{error}</p>
-              <p className="text-red-600 text-xs mt-1">Make sure the backend server is running on port 3001</p>
-            </div>
-          )}
           
           {user && (
             <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md">

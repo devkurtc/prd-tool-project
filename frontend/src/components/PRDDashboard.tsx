@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { FileText, Plus, Search, Filter, Calendar, User, Tag } from 'lucide-react'
 import { apiClient, type PRD, type User as UserType } from '../lib/api'
+import { PRDEditor } from './PRDEditor'
+import { CreatePRDModal } from './CreatePRDModal'
 
 interface PRDCardProps {
   prd: PRD
@@ -85,6 +87,7 @@ export function PRDDashboard({ user }: PRDDashboardProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [selectedPRD, setSelectedPRD] = useState<PRD | null>(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   // Load PRDs
   useEffect(() => {
@@ -117,8 +120,11 @@ export function PRDDashboard({ user }: PRDDashboardProps) {
   }
 
   const handleCreateNew = () => {
-    // TODO: Implement create new PRD modal/page
-    alert('Create new PRD functionality coming soon!')
+    setShowCreateModal(true)
+  }
+
+  const handleCreateSuccess = () => {
+    loadPRDs() // Refresh the PRD list
   }
 
   const handleSelectPRD = (prd: PRD) => {
@@ -126,7 +132,7 @@ export function PRDDashboard({ user }: PRDDashboardProps) {
   }
 
   if (selectedPRD) {
-    return <PRDViewer prd={selectedPRD} onBack={() => setSelectedPRD(null)} />
+    return <PRDEditor prdId={selectedPRD.id} user={user} onBack={() => setSelectedPRD(null)} />
   }
 
   return (
@@ -269,31 +275,14 @@ export function PRDDashboard({ user }: PRDDashboardProps) {
           </div>
         )}
       </div>
+
+      {/* Create PRD Modal */}
+      <CreatePRDModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={handleCreateSuccess}
+      />
     </div>
   )
 }
 
-// Simple PRD Viewer component
-function PRDViewer({ prd, onBack }: { prd: PRD; onBack: () => void }) {
-  return (
-    <div className="min-h-screen bg-white">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <button
-          onClick={onBack}
-          className="mb-6 text-blue-600 hover:text-blue-800 flex items-center"
-        >
-          ← Back to Dashboard
-        </button>
-        
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{prd.title}</h1>
-          <p className="text-gray-600">{prd.description}</p>
-        </div>
-        
-        <div className="prose max-w-none">
-          <pre className="whitespace-pre-wrap font-sans">{prd.content}</pre>
-        </div>
-      </div>
-    </div>
-  )
-}

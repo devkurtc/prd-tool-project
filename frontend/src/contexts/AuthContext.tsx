@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { apiClient, User, LoginRequest, RegisterRequest } from '../lib/api'
+import React, { createContext, useContext, useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
+import { apiClient } from '../lib/api'
+import type { User, LoginRequest, RegisterRequest } from '../lib/api'
 
 interface AuthContextType {
   user: User | null
