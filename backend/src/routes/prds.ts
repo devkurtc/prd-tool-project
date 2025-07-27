@@ -6,6 +6,13 @@ import { mockPRDs, getPRDById, getPRDsByUser, searchPRDs, getCurrentUser } from 
 
 const router = Router()
 
+/**
+ * @swagger
+ * tags:
+ *   name: PRDs
+ *   description: Product Requirements Document management
+ */
+
 // Validation schemas
 const createPrdSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
@@ -25,6 +32,71 @@ const updatePrdSchema = z.object({
   tags: z.array(z.string()).optional()
 })
 
+/**
+ * @swagger
+ * /api/prds:
+ *   get:
+ *     summary: List user's PRDs
+ *     tags: [PRDs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of items per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [DRAFT, REVIEW, APPROVED, ARCHIVED]
+ *         description: Filter by PRD status
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search term for title and content
+ *       - in: query
+ *         name: tags
+ *         schema:
+ *           type: string
+ *         description: Comma-separated list of tags to filter by
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [title, createdAt, updatedAt, status]
+ *           default: updatedAt
+ *         description: Field to sort by
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Sort order
+ *     responses:
+ *       200:
+ *         description: List of PRDs retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PRDListResponse'
+ *       401:
+ *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // GET /api/prds - List user's PRDs
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const { 
@@ -103,6 +175,47 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   })
 }))
 
+/**
+ * @swagger
+ * /api/prds:
+ *   post:
+ *     summary: Create a new PRD
+ *     tags: [PRDs]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreatePRDRequest'
+ *           example:
+ *             title: "Mobile App Feature Enhancement"
+ *             description: "Adding dark mode support to the mobile application"
+ *             content: "## Overview\nThis PRD outlines the requirements for implementing dark mode..."
+ *             template: "feature-template"
+ *             isPublic: false
+ *             tags: ["mobile", "ui", "feature"]
+ *     responses:
+ *       201:
+ *         description: PRD created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PRDResponse'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // POST /api/prds - Create new PRD
 router.post('/', asyncHandler(async (req: Request, res: Response) => {
   const validatedData = createPrdSchema.parse(req.body)
@@ -132,6 +245,41 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
   })
 }))
 
+/**
+ * @swagger
+ * /api/prds/{id}:
+ *   get:
+ *     summary: Get a specific PRD by ID
+ *     tags: [PRDs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: PRD unique identifier
+ *     responses:
+ *       200:
+ *         description: PRD retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PRDResponse'
+ *       404:
+ *         description: PRD not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // GET /api/prds/:id - Get specific PRD
 router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params
@@ -150,6 +298,58 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   })
 }))
 
+/**
+ * @swagger
+ * /api/prds/{id}:
+ *   put:
+ *     summary: Update an existing PRD
+ *     tags: [PRDs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: PRD unique identifier
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdatePRDRequest'
+ *           example:
+ *             title: "Updated Mobile App Feature"
+ *             content: "## Updated Overview\nThis PRD has been updated with new requirements..."
+ *             status: "REVIEW"
+ *             tags: ["mobile", "ui", "feature", "updated"]
+ *     responses:
+ *       200:
+ *         description: PRD updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PRDResponse'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: PRD not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // PUT /api/prds/:id - Update PRD
 router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params
@@ -171,6 +371,48 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
   })
 }))
 
+/**
+ * @swagger
+ * /api/prds/{id}:
+ *   delete:
+ *     summary: Delete a PRD
+ *     tags: [PRDs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: PRD unique identifier
+ *     responses:
+ *       200:
+ *         description: PRD deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "PRD deleted successfully"
+ *       404:
+ *         description: PRD not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // DELETE /api/prds/:id - Delete PRD
 router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params
