@@ -1,12 +1,12 @@
-// Prisma Schema for PRD Tool - Clean Production Version
-// Database: SQLite (for local development)
+// Prisma Schema for PRD Tool - Production Version
+// Database: PostgreSQL
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -24,7 +24,11 @@ model User {
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  prds PRD[] @relation("UserPRDs")
+  prds         PRD[]          @relation("UserPRDs")
+  collaborations Collaborator[]
+  comments     Comment[]
+  activities   Activity[]
+  sessions     Session[]
 
   @@map("users")
 }
@@ -43,8 +47,12 @@ model PRD {
   authorId String @map("author_id")
   author   User   @relation("UserPRDs", fields: [authorId], references: [id], onDelete: Cascade)
 
-  // Versions
-  versions PRDVersion[]
+  // Relations
+  versions      PRDVersion[]
+  collaborators Collaborator[]
+  comments      Comment[]
+  activities    Activity[]
+  aiInteractions AIInteraction[]
 
   @@map("prds")
 }
@@ -72,8 +80,80 @@ model Session {
   id        String   @id @default(cuid())
   token     String   @unique
   userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("sessions")
+}
+
+// Collaboration
+model Collaborator {
+  id        String   @id @default(cuid())
+  role      String   @default("VIEWER") // VIEWER, EDITOR, ADMIN
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  prdId String @map("prd_id")
+  prd   PRD    @relation(fields: [prdId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, prdId])
+  @@map("collaborators")
+}
+
+// Comments
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  resolved  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  prdId String @map("prd_id")
+  prd   PRD    @relation(fields: [prdId], references: [id], onDelete: Cascade)
+  
+  authorId String @map("author_id")
+  author   User   @relation(fields: [authorId], references: [id])
+  
+  @@map("comments")
+}
+
+// Activity tracking
+model Activity {
+  id        String   @id @default(cuid())
+  type      String   // CREATED, UPDATED, COMMENTED, SHARED, etc.
+  metadata  Json?    // Additional activity-specific data
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+  
+  prdId String @map("prd_id")
+  prd   PRD    @relation(fields: [prdId], references: [id], onDelete: Cascade)
+  
+  @@index([prdId, createdAt])
+  @@map("activities")
+}
+
+// AI Interactions
+model AIInteraction {
+  id         String   @id @default(cuid())
+  prompt     String
+  response   String
+  model      String   // gpt-4, claude-3, etc.
+  tokens     Int      // Token count for cost tracking
+  costCents  Float    // Cost in cents
+  createdAt  DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  prdId String @map("prd_id")
+  prd   PRD    @relation(fields: [prdId], references: [id], onDelete: Cascade)
+  
+  @@index([prdId, createdAt])
+  @@map("ai_interactions")
 }

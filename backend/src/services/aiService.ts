@@ -385,7 +385,13 @@ Please provide a suggestion for improving this content.`
       })
 
       if (!response.ok) {
-        throw new Error(`Anthropic API error: ${response.status} ${response.statusText}`)
+        const errorBody = await response.text()
+        console.error('Anthropic API error details:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorBody
+        })
+        throw new Error(`Anthropic API error: ${response.status} ${response.statusText} - ${errorBody}`)
       }
 
       const data = await response.json()
@@ -406,6 +412,13 @@ Please provide a suggestion for improving this content.`
       }
     } catch (error) {
       console.error('Anthropic API error:', error)
+      
+      // If API credits are low, provide helpful error message
+      if (error.message.includes('credit balance is too low')) {
+        logger.warn('Anthropic API credits exhausted')
+        throw new Error('AI service temporarily unavailable: API credit balance is too low. Please add credits to your Anthropic account.')
+      }
+      
       throw error
     }
   }
@@ -559,6 +572,19 @@ export class AIService {
         provider: providerName, 
         error: error instanceof Error ? error.message : 'Unknown error' 
       })
+      
+      // Return development mock response when AI services are unavailable
+      if (error instanceof Error && (error.message.includes('credit balance') || error.message.includes('API key'))) {
+        logger.warn('AI service unavailable, returning development mock response')
+        return [{
+          type: this.getTypeFromCommand(request.command),
+          title: `${request.command.charAt(0).toUpperCase() + request.command.slice(1)} Suggestion`,
+          content: this.generateMockSuggestion(request),
+          confidence: 0.7,
+          isMock: true
+        }]
+      }
+      
       throw error
     }
   }
@@ -569,6 +595,73 @@ export class AIService {
 
   getCurrentProvider(): string {
     return this.defaultProvider
+  }
+
+  private generateMockSuggestion(request: AISuggestionRequest): string {
+    const { command, description, selection } = request
+    
+    const suggestions = {
+      expand: `Here are some ways to expand on "${selection || 'the content'}":
+
+• Add specific technical details and implementation considerations
+• Include relevant examples and use cases  
+• Provide acceptance criteria and success metrics
+• Consider edge cases and error handling scenarios
+
+${description ? `Additional context: ${description}` : ''}`,
+      
+      update: `Consider these improvements for "${selection || 'the content'}":
+
+• Make the language more precise and technical
+• Add specific metrics and KPIs
+• Include technical constraints and dependencies  
+• Reference industry best practices
+
+${description ? `Focus area: ${description}` : ''}`,
+      
+      summarize: `Key points summary:
+
+• Main objective: [Core goal of this section]
+• Requirements: [Key requirements identified]
+• Success criteria: [How success will be measured]
+• Next steps: [Action items and dependencies]`,
+      
+      rewrite: `Alternative version with ${description || 'improved clarity'}:
+
+[This would be a rewritten version focusing on better structure, clarity, and professional tone while maintaining all key information]`,
+      
+      suggest: `Improvement suggestions:
+
+• Structure: Organize content with clear headers and bullet points
+• Specificity: Add concrete examples and measurable outcomes
+• Completeness: Ensure all stakeholder needs are addressed
+• Clarity: Use precise technical language appropriate for the audience`,
+      
+      analyze: `Content analysis:
+
+Strengths:
+• [Identifies strong aspects of the content]
+
+Areas for improvement:
+• [Specific suggestions for enhancement]
+
+Recommendations:
+• [Actionable next steps]`
+    }
+    
+    return suggestions[command] || `Mock suggestion for @${command} command. This demonstrates the expected response format when AI services are available.`
+  }
+
+  private getTypeFromCommand(command: string): string {
+    const typeMap = {
+      expand: 'expansion',
+      update: 'improvement', 
+      summarize: 'summary',
+      rewrite: 'rewrite',
+      suggest: 'suggestion',
+      analyze: 'analysis'
+    }
+    return typeMap[command] || 'suggestion'
   }
 }
 
