@@ -26,6 +26,11 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required')
 })
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters')
+})
+
 /**
  * @swagger
  * /api/auth/register:
@@ -205,7 +210,7 @@ router.get('/me', authenticateToken, asyncHandler(async (req: AuthenticatedReque
     })
   }
 
-  const user = await authService.getUserById(req.user.userId)
+  const user = await authService.getUserById(req.user.id)
   
   if (!user) {
     return res.status(404).json({
@@ -269,12 +274,84 @@ router.get('/me', authenticateToken, asyncHandler(async (req: AuthenticatedReque
  */
 // POST /api/auth/logout
 router.post('/logout', authenticateToken, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  // TODO: Implement token blacklisting for enhanced security
-  logger.info('User logout', { userId: req.user?.userId })
+  logger.info('User logout', { userId: req.user?.id })
+  
+  // If using session token, delete it
+  if (req.session) {
+    await authService.logout(req.session)
+  }
   
   res.json({
     success: true,
     message: 'Logged out successfully'
+  })
+}))
+
+/**
+ * @swagger
+ * /api/auth/change-password:
+ *   post:
+ *     summary: Change user password
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 minLength: 1
+ *               newPassword:
+ *                 type: string
+ *                 minLength: 8
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       400:
+ *         description: Invalid current password
+ *       401:
+ *         description: Authentication required
+ */
+// POST /api/auth/change-password
+router.post('/change-password', authenticateToken, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: 'Authentication required'
+      }
+    })
+  }
+
+  const validatedData = changePasswordSchema.parse(req.body)
+  
+  const result = await authService.changePassword(
+    req.user.id,
+    validatedData.currentPassword,
+    validatedData.newPassword
+  )
+
+  if (!result.success) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: 'PASSWORD_CHANGE_FAILED',
+        message: result.error
+      }
+    })
+  }
+
+  res.json({
+    success: true,
+    message: 'Password changed successfully. Please login again.'
   })
 }))
 

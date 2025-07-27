@@ -4,9 +4,12 @@ import { logger } from '../utils/logger.js'
 
 export interface AuthenticatedRequest extends Request {
   user?: {
-    userId: string
+    id: string
     email: string
+    name: string
+    avatarUrl?: string | null
   }
+  session?: string
 }
 
 export const authenticateToken = async (
@@ -28,19 +31,56 @@ export const authenticateToken = async (
       })
     }
 
-    const decoded = await authService.verifyToken(token)
-    
-    if (!decoded) {
-      return res.status(403).json({
-        success: false,
-        error: {
-          code: 'FORBIDDEN',
-          message: 'Invalid or expired token'
-        }
-      })
+    // Try JWT first
+    if (token.length < 100) { // JWT tokens are typically shorter
+      const decoded = await authService.verifyToken(token)
+      
+      if (!decoded) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Invalid or expired token'
+          }
+        })
+      }
+
+      // Get full user info
+      const user = await authService.getUserById(decoded.userId)
+      if (!user || !user.isActive) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'FORBIDDEN',
+            message: 'User account is not active'
+          }
+        })
+      }
+
+      req.user = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatarUrl: user.avatarUrl
+      }
+    } else {
+      // Try session token
+      const user = await authService.validateSession(token)
+      
+      if (!user) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Invalid or expired session'
+          }
+        })
+      }
+
+      req.user = user
+      req.session = token
     }
 
-    req.user = decoded
     next()
   } catch (error) {
     logger.error('Authentication error:', error)

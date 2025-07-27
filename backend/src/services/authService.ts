@@ -1,9 +1,9 @@
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
-import { PrismaClient } from '@prisma/client'
+import crypto from 'crypto'
+import { prisma } from '../db/client.js'
 import { logger } from '../utils/logger.js'
-
-const prisma = new PrismaClient()
+import { env } from '../config/env.js'
 
 export interface AuthResult {
   success: boolean
@@ -21,8 +21,8 @@ export class AuthService {
   private jwtExpiry: string
 
   constructor() {
-    this.jwtSecret = process.env.JWT_SECRET || 'your-secret-key'
-    this.jwtExpiry = process.env.JWT_EXPIRES_IN || '7d'
+    this.jwtSecret = env.JWT_SECRET
+    this.jwtExpiry = env.JWT_EXPIRES_IN
   }
 
   async register(email: string, name: string, password: string): Promise<AuthResult> {
@@ -173,6 +173,126 @@ export class AuthService {
     } catch (error) {
       logger.error('Error fetching user:', error)
       return null
+    }
+  }
+
+  async createSession(userId: string): Promise<string | null> {
+    try {
+      const token = crypto.randomBytes(32).toString('hex')
+      const expiresAt = new Date()
+      expiresAt.setDate(expiresAt.getDate() + 30) // 30 days
+
+      await prisma.session.create({
+        data: {
+          token,
+          userId,
+          expiresAt
+        }
+      })
+
+      return token
+    } catch (error) {
+      logger.error('Error creating session:', error)
+      return null
+    }
+  }
+
+  async validateSession(token: string) {
+    try {
+      const session = await prisma.session.findUnique({
+        where: { token },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              avatarUrl: true,
+              isActive: true
+            }
+          }
+        }
+      })
+
+      if (!session) {
+        return null
+      }
+
+      // Check if session is expired
+      if (session.expiresAt < new Date()) {
+        await prisma.session.delete({ where: { id: session.id } })
+        return null
+      }
+
+      // Check if user is active
+      if (!session.user.isActive) {
+        return null
+      }
+
+      return session.user
+    } catch (error) {
+      logger.error('Error validating session:', error)
+      return null
+    }
+  }
+
+  async logout(token: string): Promise<boolean> {
+    try {
+      await prisma.session.delete({
+        where: { token }
+      })
+      return true
+    } catch (error) {
+      logger.error('Error logging out:', error)
+      return false
+    }
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<AuthResult> {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId }
+      })
+
+      if (!user) {
+        return {
+          success: false,
+          error: 'User not found'
+        }
+      }
+
+      // Verify current password
+      const isValidPassword = await bcrypt.compare(currentPassword, user.password)
+      if (!isValidPassword) {
+        return {
+          success: false,
+          error: 'Current password is incorrect'
+        }
+      }
+
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, 12)
+
+      // Update password
+      await prisma.user.update({
+        where: { id: userId },
+        data: { password: hashedPassword }
+      })
+
+      // Invalidate all sessions
+      await prisma.session.deleteMany({
+        where: { userId }
+      })
+
+      return {
+        success: true
+      }
+    } catch (error) {
+      logger.error('Error changing password:', error)
+      return {
+        success: false,
+        error: 'Failed to change password'
+      }
     }
   }
 }
