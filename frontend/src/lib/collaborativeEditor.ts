@@ -1,6 +1,12 @@
-import { TextOperation } from 'ot'
 import type { editor } from 'monaco-editor'
 import type { Socket } from 'socket.io-client'
+
+// Simple operation interface for collaborative editing
+interface SimpleOperation {
+  type: 'insert' | 'delete' | 'retain'
+  length?: number
+  text?: string
+}
 
 interface CollaborativeEditorOptions {
   editor: editor.IStandaloneCodeEditor
@@ -16,7 +22,7 @@ export class CollaborativeEditor {
   private prdId: string
   private userId: string
   private version: number = 0
-  private buffer: TextOperation[] = []
+  private buffer: any[] = []
   private isApplyingOperation = false
   private onVersionChange?: (version: number) => void
   private disposables: any[] = []
@@ -57,33 +63,15 @@ export class CollaborativeEditor {
     })
     this.disposables.push(cursorChangeDisposable)
 
-    // Listen for remote operations
-    this.socket.on('operation', (data: {
-      operation: any
+    // Listen for remote content updates
+    this.socket.on('content-updated', (data: {
+      content: string
       version: number
       user: { id: string; name: string }
     }) => {
       if (data.user.id !== this.userId) {
-        this.applyRemoteOperation(data.operation, data.version)
+        this.applyRemoteContent(data.content, data.version)
       }
-    })
-
-    // Listen for operation acknowledgments
-    this.socket.on('operation-ack', (data: { version: number }) => {
-      this.version = data.version
-      this.onVersionChange?.(this.version)
-      
-      // Send buffered operations if any
-      if (this.buffer.length > 0) {
-        const op = this.buffer.shift()!
-        this.sendOperation(op)
-      }
-    })
-
-    // Listen for operation errors
-    this.socket.on('operation-error', (data: { message: string; version: number }) => {
-      console.error('Operation error:', data.message)
-      // TODO: Handle operation error (e.g., resync with server)
     })
 
     // Listen for document state
@@ -98,86 +86,42 @@ export class CollaborativeEditor {
     })
   }
 
-  private createOperationFromChange(e: editor.IModelContentChangedEvent): TextOperation | null {
+  private createOperationFromChange(e: editor.IModelContentChangedEvent): any {
+    // For now, send the entire content instead of operations
+    // This is simpler but less efficient than OT
     const model = this.editor.getModel()
     if (!model) return null
 
-    let operation = new TextOperation()
-    let lastIndex = 0
-
-    // Sort changes by range start
-    const changes = [...e.changes].sort((a, b) => 
-      a.rangeOffset - b.rangeOffset
-    )
-
-    for (const change of changes) {
-      const startOffset = change.rangeOffset
-      const endOffset = startOffset + change.rangeLength
-      
-      // Retain unchanged text before this change
-      if (startOffset > lastIndex) {
-        operation = operation.retain(startOffset - lastIndex)
-      }
-      
-      // Delete removed text
-      if (change.rangeLength > 0) {
-        operation = operation.delete(change.rangeLength)
-      }
-      
-      // Insert new text
-      if (change.text.length > 0) {
-        operation = operation.insert(change.text)
-      }
-      
-      lastIndex = endOffset
+    return {
+      type: 'full_update',
+      content: model.getValue(),
+      changes: e.changes
     }
-
-    // Retain remaining text
-    const totalLength = model.getValue().length
-    if (lastIndex < totalLength) {
-      operation = operation.retain(totalLength - lastIndex)
-    }
-
-    return operation
   }
 
-  private sendOperation(operation: TextOperation) {
-    // Buffer operation if waiting for acknowledgment
-    if (this.buffer.length > 0) {
-      this.buffer.push(operation)
-      return
-    }
-
-    this.socket.emit('operation', {
+  private sendOperation(operation: any) {
+    // Simple content sync without OT for now
+    this.socket.emit('content-change', {
       prdId: this.prdId,
-      operation: operation.toJSON(),
+      content: operation.content,
       version: this.version
     })
-
-    // Add to buffer to track pending operations
-    this.buffer.push(operation)
   }
 
-  private applyRemoteOperation(operationData: any, version: number) {
+  private applyRemoteContent(content: string, version: number) {
     try {
-      const operation = TextOperation.fromJSON(operationData)
       const model = this.editor.getModel()
       if (!model) return
 
       this.isApplyingOperation = true
       
-      // Apply operation to editor
-      const currentContent = model.getValue()
-      const newContent = operation.apply(currentContent)
-      
-      // Calculate minimal edit to preserve cursor position
-      const edits = this.calculateMinimalEdits(currentContent, newContent)
-      model.pushEditOperations([], edits, () => null)
+      // Simply replace the content for now
+      model.setValue(content)
       
       this.version = version
       this.onVersionChange?.(this.version)
     } catch (error) {
-      console.error('Failed to apply remote operation:', error)
+      console.error('Failed to apply remote content:', error)
     } finally {
       this.isApplyingOperation = false
     }
@@ -213,9 +157,7 @@ export class CollaborativeEditor {
     this.disposables.forEach(d => d.dispose())
     
     // Remove socket listeners
-    this.socket.off('operation')
-    this.socket.off('operation-ack')
-    this.socket.off('operation-error')
+    this.socket.off('content-updated')
     this.socket.off('document-state')
   }
 }

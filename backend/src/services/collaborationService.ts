@@ -1,11 +1,11 @@
-import { TextOperation } from 'ot'
+// Simplified collaboration service without OT for now
 import { logger } from '../utils/logger.js'
 import { prisma } from '../config/database.js'
 
 interface DocumentState {
   content: string
   version: number
-  operations: TextOperation[]
+  lastUpdated: Date
 }
 
 class CollaborationService {
@@ -36,7 +36,7 @@ class CollaborationService {
       const state: DocumentState = {
         content: prd.content,
         version: prd.versions[0]?.version || 1,
-        operations: []
+        lastUpdated: new Date()
       }
 
       this.documents.set(prdId, state)
@@ -47,49 +47,23 @@ class CollaborationService {
     }
   }
 
-  applyOperation(prdId: string, operation: TextOperation, clientVersion: number): { 
+  updateContent(prdId: string, content: string): { 
     content: string
     version: number
-    transformedOp?: TextOperation 
   } {
     const doc = this.documents.get(prdId)
     if (!doc) {
       throw new Error('Document not initialized')
     }
 
-    // Check if operation is based on current version
-    if (clientVersion === doc.version) {
-      // Apply operation directly
-      doc.content = operation.apply(doc.content)
-      doc.version++
-      doc.operations.push(operation)
+    // Simple content replacement for now
+    doc.content = content
+    doc.version++
+    doc.lastUpdated = new Date()
 
-      return {
-        content: doc.content,
-        version: doc.version
-      }
-    } else if (clientVersion < doc.version) {
-      // Transform operation against missed operations
-      let transformedOp = operation
-      const missedOps = doc.operations.slice(clientVersion - 1)
-      
-      for (const missedOp of missedOps) {
-        const [op1Prime, op2Prime] = TextOperation.transform(transformedOp, missedOp)
-        transformedOp = op1Prime
-      }
-
-      // Apply transformed operation
-      doc.content = transformedOp.apply(doc.content)
-      doc.version++
-      doc.operations.push(transformedOp)
-
-      return {
-        content: doc.content,
-        version: doc.version,
-        transformedOp
-      }
-    } else {
-      throw new Error('Client version ahead of server')
+    return {
+      content: doc.content,
+      version: doc.version
     }
   }
 
