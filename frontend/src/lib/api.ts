@@ -283,6 +283,34 @@ class ApiClient {
     return this.request<{ prd: PRD }>(`/api/prds/${id}`)
   }
 
+  async getPRDVersions(prdId: string, params?: { page?: number; limit?: number }) {
+    const queryString = params ? new URLSearchParams({
+      page: params.page?.toString() || '1',
+      limit: params.limit?.toString() || '10'
+    }).toString() : ''
+    
+    return this.request<{
+      versions: Array<{
+        id: string
+        version: number
+        content: string
+        changeLog?: string
+        createdAt: string
+        author: {
+          id: string
+          name: string
+          email: string
+        }
+      }>
+      pagination: {
+        page: number
+        limit: number
+        total: number
+        totalPages: number
+      }
+    }>(`/api/prds/${prdId}/versions${queryString ? `?${queryString}` : ''}`)
+  }
+
   async createPRD(prd: {
     title: string
     description?: string

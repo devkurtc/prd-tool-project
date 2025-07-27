@@ -19,7 +19,7 @@ export class CollaborativeEditor {
   private buffer: TextOperation[] = []
   private isApplyingOperation = false
   private onVersionChange?: (version: number) => void
-  private disposables: editor.IDisposable[] = []
+  private disposables: any[] = []
 
   constructor(options: CollaborativeEditorOptions) {
     this.editor = options.editor
@@ -184,9 +184,9 @@ export class CollaborativeEditor {
   }
 
   private calculateMinimalEdits(
-    oldText: string, 
+    _oldText: string, 
     newText: string
-  ): editor.IIdentifiedSingleEditOperation[] {
+  ): any[] {
     // Simple implementation - replace entire content
     // TODO: Implement proper diff algorithm for minimal edits
     const model = this.editor.getModel()!
@@ -194,15 +194,13 @@ export class CollaborativeEditor {
     const lastColumn = model.getLineMaxColumn(lastLine)
     
     return [{
-      identifier: { major: 1, minor: 1 },
       range: {
         startLineNumber: 1,
         startColumn: 1,
         endLineNumber: lastLine,
         endColumn: lastColumn
       },
-      text: newText,
-      forceMoveMarkers: false
+      text: newText
     }]
   }
 

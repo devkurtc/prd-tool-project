@@ -739,7 +739,7 @@ router.get('/:id/versions', authenticateToken, asyncHandler(async (req: Authenti
       where: {
         id,
         OR: [
-          { authorId: userId },
+          { authorId: userId! },
           { isPublic: true }
         ]
       }
@@ -761,24 +761,22 @@ router.get('/:id/versions', authenticateToken, asyncHandler(async (req: Authenti
 
     // Get total count
     const total = await prisma.pRDVersion.count({
-      where: { prdId: id }
+      where: { prdId: id! }
     })
 
     // Get versions with author info
     const versions = await prisma.pRDVersion.findMany({
-      where: { prdId: id },
+      where: { prdId: id! },
       orderBy: { version: 'desc' },
       skip,
       take: limitNum,
-      include: {
-        prd: {
-          select: {
-            author: {
-              select: { id: true, name: true, email: true }
-            }
-          }
-        }
-      }
+      // Note: Getting author info from versions table since we don't have direct relation
+    })
+
+    // We need to get author info separately for now
+    const authorInfo = await prisma.user.findUnique({
+      where: { id: userId! },
+      select: { id: true, name: true, email: true }
     })
 
     // Format versions
@@ -788,7 +786,7 @@ router.get('/:id/versions', authenticateToken, asyncHandler(async (req: Authenti
       content: v.content,
       changeLog: v.changeLog,
       createdAt: v.createdAt.toISOString(),
-      author: v.prd.author
+      author: authorInfo || { id: v.authorId, name: 'Unknown', email: 'unknown@example.com' }
     }))
 
     res.json({

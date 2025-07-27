@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Clock, GitBranch, User, ChevronRight, FileText } from 'lucide-react'
 import { apiClient } from '../lib/api'
 import { formatDistanceToNow } from 'date-fns'
@@ -41,8 +41,10 @@ export function VersionHistory({
   const loadVersions = async () => {
     try {
       setLoading(true)
-      const response = await apiClient.get(`/prds/${prdId}/versions`)
-      setVersions(response.data.versions)
+      const response = await apiClient.getPRDVersions(prdId)
+      if (response.data?.versions) {
+        setVersions(response.data.versions)
+      }
     } catch (error) {
       console.error('Failed to load versions:', error)
     } finally {

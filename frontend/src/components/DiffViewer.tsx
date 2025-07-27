@@ -1,5 +1,4 @@
-import React from 'react'
-import { X, FileText, GitCompare } from 'lucide-react'
+import { X, GitCompare } from 'lucide-react'
 
 interface DiffViewerProps {
   version1: {

@@ -13,7 +13,7 @@ const httpServer = createServer(app)
 const PORT = process.env.PORT || 3001
 
 // Initialize WebSocket server
-const socketManager = new SocketManager(httpServer)
+new SocketManager(httpServer)
 
 httpServer.listen(PORT, () => {
   logger.info(`🚀 Development server running on port ${PORT}`)

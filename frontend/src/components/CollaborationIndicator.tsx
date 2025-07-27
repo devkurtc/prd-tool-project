@@ -1,8 +1,11 @@
-import React from 'react'
-import { User } from '../lib/api'
+interface ActiveUser {
+  id: string
+  name: string
+  email: string
+}
 
 interface CollaborationIndicatorProps {
-  activeUsers: User[]
+  activeUsers: ActiveUser[]
   currentUserId: string
 }
 
@@ -58,7 +61,7 @@ export function CollaborationIndicator({ activeUsers, currentUserId }: Collabora
   )
 }
 
-export function CursorLabel({ user, position }: { user: User; position: { x: number; y: number } }) {
+export function CursorLabel({ user, position }: { user: ActiveUser; position: { x: number; y: number } }) {
   return (
     <div
       className="absolute pointer-events-none z-50 transition-all duration-100"

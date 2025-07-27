@@ -37,7 +37,6 @@ export function PRDEditor({ prdId, user, onBack }: PRDEditorProps) {
     activeUsers, 
     joinPRD, 
     leavePRD, 
-    updateCursorPosition,
     socket
   } = useWebSocket({ user })
 
