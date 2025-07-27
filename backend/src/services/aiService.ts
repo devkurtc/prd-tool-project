@@ -285,20 +285,187 @@ class OpenAIProvider implements AIProvider {
   }
 }
 
-// Anthropic Provider (placeholder for future implementation)
+// Anthropic Provider
 class AnthropicProvider implements AIProvider {
   name = 'Anthropic Claude'
   
   constructor(private apiKey: string) {}
 
   async generateContent(prompt: string, options?: AIGenerationOptions): Promise<string> {
-    // TODO: Implement Anthropic API integration
-    throw new Error('Anthropic integration not yet implemented')
+    const type = options?.type || 'content'
+    const context = options?.context || ''
+    
+    const systemPrompt = this.getSystemPrompt(type)
+    const userPrompt = this.formatUserPrompt(prompt, type, context)
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-sonnet-20241022',
+          max_tokens: 2000,
+          temperature: 0.7,
+          system: systemPrompt,
+          messages: [
+            {
+              role: 'user',
+              content: userPrompt
+            }
+          ]
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Anthropic API error: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      return data.content[0].text || 'No content generated'
+    } catch (error) {
+      console.error('Anthropic API error:', error)
+      throw error
+    }
   }
 
   async generateSuggestion(request: AISuggestionRequest): Promise<AISuggestion[]> {
-    // TODO: Implement Anthropic API integration
-    throw new Error('Anthropic integration not yet implemented')
+    const { command, description, prdContent, context, selection, prdTitle } = request
+    
+    const systemPrompt = `You are an expert product manager and technical writer. Your role is to help improve Product Requirements Documents (PRDs) by providing specific, actionable suggestions.
+
+When given a command and content, provide exactly one suggestion in the following JSON format:
+{
+  "type": "replacement|addition|summary|suggestions|analysis|general",
+  "title": "Brief descriptive title",
+  "content": "The actual content/suggestion in markdown format",
+  "confidence": 0.85
+}
+
+Guidelines:
+- For @update: Improve clarity, add technical details, enhance structure
+- For @expand: Add implementation details, examples, technical considerations
+- For @summarize: Create concise summaries with key points
+- For @rewrite: Change tone, style, or target audience
+- For @suggest: Provide actionable recommendations for improvement
+- For @analyze: Identify strengths, weaknesses, and missing elements
+
+Always provide practical, specific suggestions that improve the PRD quality.`
+
+    const userPrompt = `Command: @${command} ${description || ''}
+PRD Title: ${prdTitle}
+Selected Text: ${selection || 'No text selected'}
+Context: ${context || 'No additional context'}
+
+Please provide a suggestion for improving this content.`
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-sonnet-20241022',
+          max_tokens: 1500,
+          temperature: 0.7,
+          system: systemPrompt,
+          messages: [
+            {
+              role: 'user',
+              content: userPrompt
+            }
+          ]
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Anthropic API error: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      const content = data.content[0].text
+
+      // Try to parse as JSON first
+      try {
+        const suggestion = JSON.parse(content)
+        return [suggestion]
+      } catch {
+        // If not JSON, create a structured response
+        return [{
+          type: this.getTypeFromCommand(command),
+          title: `${command.charAt(0).toUpperCase() + command.slice(1)} Suggestion`,
+          content: content,
+          confidence: 0.85
+        }]
+      }
+    } catch (error) {
+      console.error('Anthropic API error:', error)
+      throw error
+    }
+  }
+
+  private getSystemPrompt(type: string): string {
+    switch (type) {
+      case 'content':
+        return 'You are an expert product manager helping to create comprehensive PRD content. Provide detailed, structured content that follows PRD best practices.'
+      case 'section':
+        return 'You are an expert at creating specific PRD sections. Provide well-structured sections with clear headings, implementation details, and success criteria.'
+      case 'improvement':
+        return 'You are a product management consultant specializing in PRD improvements. Provide prioritized recommendations with clear impact assessments.'
+      case 'analysis':
+        return 'You are a senior product manager conducting PRD reviews. Provide thorough analysis with strengths, weaknesses, and actionable recommendations.'
+      default:
+        return 'You are an expert product manager helping to improve Product Requirements Documents. Provide clear, actionable, and well-structured content.'
+    }
+  }
+
+  private formatUserPrompt(prompt: string, type: string, context: string): string {
+    let formattedPrompt = `Please help me with the following request: ${prompt}`
+    
+    if (context) {
+      formattedPrompt += `\n\nContext: ${context}`
+    }
+
+    switch (type) {
+      case 'content':
+        formattedPrompt += '\n\nPlease provide comprehensive content that includes relevant details, proper structure, and actionable information.'
+        break
+      case 'section':
+        formattedPrompt += '\n\nPlease create a well-structured section with overview, implementation details, and success criteria.'
+        break
+      case 'improvement':
+        formattedPrompt += '\n\nPlease provide prioritized improvement suggestions with clear impact assessments.'
+        break
+      case 'analysis':
+        formattedPrompt += '\n\nPlease provide a thorough analysis with findings, recommendations, and risk assessment.'
+        break
+    }
+
+    return formattedPrompt
+  }
+
+  private getTypeFromCommand(command: string): AISuggestion['type'] {
+    switch (command) {
+      case 'update':
+      case 'rewrite':
+        return 'replacement'
+      case 'expand':
+        return 'addition'
+      case 'summarize':
+        return 'summary'
+      case 'suggest':
+        return 'suggestions'
+      case 'analyze':
+        return 'analysis'
+      default:
+        return 'general'
+    }
   }
 }
 
