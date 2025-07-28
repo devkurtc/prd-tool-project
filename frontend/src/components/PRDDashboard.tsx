@@ -89,6 +89,25 @@ export function PRDDashboard({ user }: PRDDashboardProps) {
   const [selectedPRD, setSelectedPRD] = useState<PRD | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
 
+  // Guard against undefined user or stats
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+          <p className="text-muted-foreground">Loading user data...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Ensure stats object exists with defaults
+  const userStats = user.stats || {
+    prdsCreated: 0,
+    collaborations: 0,
+    aiInteractions: 0
+  }
+
   // Load PRDs
   useEffect(() => {
     loadPRDs()
@@ -170,7 +189,7 @@ export function PRDDashboard({ user }: PRDDashboardProps) {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total PRDs</p>
-                <p className="text-2xl font-semibold text-gray-900">{user.stats.prdsCreated}</p>
+                <p className="text-2xl font-semibold text-gray-900">{userStats.prdsCreated}</p>
               </div>
             </div>
           </div>
@@ -182,7 +201,7 @@ export function PRDDashboard({ user }: PRDDashboardProps) {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Collaborations</p>
-                <p className="text-2xl font-semibold text-gray-900">{user.stats.collaborations}</p>
+                <p className="text-2xl font-semibold text-gray-900">{userStats.collaborations}</p>
               </div>
             </div>
           </div>
@@ -194,7 +213,7 @@ export function PRDDashboard({ user }: PRDDashboardProps) {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">AI Interactions</p>
-                <p className="text-2xl font-semibold text-gray-900">{user.stats.aiInteractions}</p>
+                <p className="text-2xl font-semibold text-gray-900">{userStats.aiInteractions}</p>
               </div>
             </div>
           </div>

@@ -1,9 +1,33 @@
 import { logger } from '../utils/logger.js'
+import { prisma } from '../db/client.js'
+import { env } from '../config/env.js'
 
 export interface AIProvider {
   name: string
-  generateContent(prompt: string, options?: AIGenerationOptions): Promise<string>
-  generateSuggestion(request: AISuggestionRequest): Promise<AISuggestion[]>
+  generateContent(prompt: string, options?: AIGenerationOptions): Promise<AIResponse>
+  generateSuggestion(request: AISuggestionRequest): Promise<AISuggestionResponse>
+}
+
+export interface AIResponse {
+  content: string
+  usage: {
+    inputTokens: number
+    outputTokens: number
+    totalTokens: number
+  }
+  model: string
+  costCents: number
+}
+
+export interface AISuggestionResponse {
+  suggestions: AISuggestion[]
+  usage: {
+    inputTokens: number
+    outputTokens: number
+    totalTokens: number
+  }
+  model: string
+  costCents: number
 }
 
 export interface AIGenerationOptions {
@@ -33,16 +57,17 @@ export interface AISuggestion {
 class MockAIProvider implements AIProvider {
   name = 'Mock AI Provider'
 
-  async generateContent(prompt: string, options?: AIGenerationOptions): Promise<string> {
+  async generateContent(prompt: string, options?: AIGenerationOptions): Promise<AIResponse> {
     // Simulate AI processing time
     await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000))
 
     const type = options?.type || 'content'
     const context = options?.context || ''
+    let content: string
 
     switch (type) {
       case 'content':
-        return `# Generated Content
+        content = `# Generated Content
 
 Based on your prompt: "${prompt}"
 
@@ -54,9 +79,10 @@ This is AI-generated content that addresses your requirements. The content inclu
 - Clear action items and next steps
 
 ${context ? `\n## Context Integration\nThis content builds upon: ${context}` : ''}`
+        break
 
       case 'section':
-        return `## New Section
+        content = `## New Section
 
 ### Overview
 ${prompt}
@@ -70,9 +96,10 @@ ${prompt}
 - Measurable outcomes
 - Quality standards
 - Acceptance criteria`
+        break
 
       case 'improvement':
-        return `## Suggested Improvements
+        content = `## Suggested Improvements
 
 Based on "${prompt}":
 
@@ -90,9 +117,10 @@ Based on "${prompt}":
 - Nice-to-have features
 - Long-term considerations
 - Future enhancement opportunities`
+        break
 
       case 'analysis':
-        return `## Analysis Report
+        content = `## Analysis Report
 
 ### Executive Summary
 Analysis of "${prompt}" reveals several key insights and recommendations for improvement.
@@ -111,15 +139,31 @@ Analysis of "${prompt}" reveals several key insights and recommendations for imp
 - Potential challenges
 - Mitigation strategies
 - Success probability`
+        break
 
       default:
-        return `Generated content for: ${prompt}
+        content = `Generated content for: ${prompt}
 
 This is a comprehensive response that addresses your specific needs while maintaining quality and relevance.`
     }
+
+    // Mock usage data
+    const inputTokens = Math.floor(prompt.length / 4)
+    const outputTokens = Math.floor(content.length / 4)
+    
+    return {
+      content,
+      usage: {
+        inputTokens,
+        outputTokens,
+        totalTokens: inputTokens + outputTokens
+      },
+      model: 'mock-ai-1.0',
+      costCents: 0 // Free for mock
+    }
   }
 
-  async generateSuggestion(request: AISuggestionRequest): Promise<AISuggestion[]> {
+  async generateSuggestion(request: AISuggestionRequest): Promise<AISuggestionResponse> {
     // Simulate AI processing time
     await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000))
 
@@ -264,24 +308,242 @@ Try selecting some text and using one of these commands!`,
         })
     }
 
-    return suggestions
+    // Mock usage data
+    const totalContent = JSON.stringify(request)
+    const suggestionContent = suggestions.map(s => s.content).join(' ')
+    const inputTokens = Math.floor(totalContent.length / 4)
+    const outputTokens = Math.floor(suggestionContent.length / 4)
+
+    return {
+      suggestions,
+      usage: {
+        inputTokens,
+        outputTokens,
+        totalTokens: inputTokens + outputTokens
+      },
+      model: 'mock-ai-1.0',
+      costCents: 0 // Free for mock
+    }
   }
 }
 
-// OpenAI Provider (placeholder for future implementation)
+// OpenAI Provider
 class OpenAIProvider implements AIProvider {
   name = 'OpenAI GPT'
+  private readonly model = 'gpt-4-turbo-preview'
   
   constructor(private apiKey: string) {}
 
-  async generateContent(prompt: string, options?: AIGenerationOptions): Promise<string> {
-    // TODO: Implement OpenAI API integration
-    throw new Error('OpenAI integration not yet implemented')
+  async generateContent(prompt: string, options?: AIGenerationOptions): Promise<AIResponse> {
+    const type = options?.type || 'content'
+    const context = options?.context || ''
+    
+    const systemPrompt = this.getSystemPrompt(type)
+    const userPrompt = this.formatUserPrompt(prompt, type, context)
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify({
+          model: this.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          max_tokens: options?.maxTokens || 2000,
+          temperature: options?.temperature || 0.7
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(`OpenAI API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`)
+      }
+
+      const data = await response.json()
+      const content = data.choices[0]?.message?.content || 'No content generated'
+      const usage = data.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+
+      // Calculate cost (GPT-4 Turbo pricing as of 2024)
+      const inputCostPer1K = 0.01 // $0.01 per 1K input tokens
+      const outputCostPer1K = 0.03 // $0.03 per 1K output tokens
+      const costCents = Math.round(
+        (usage.prompt_tokens / 1000 * inputCostPer1K + 
+         usage.completion_tokens / 1000 * outputCostPer1K) * 100
+      )
+
+      return {
+        content,
+        usage: {
+          inputTokens: usage.prompt_tokens,
+          outputTokens: usage.completion_tokens,
+          totalTokens: usage.total_tokens
+        },
+        model: this.model,
+        costCents
+      }
+    } catch (error) {
+      logger.error('OpenAI API error:', error)
+      throw error
+    }
   }
 
-  async generateSuggestion(request: AISuggestionRequest): Promise<AISuggestion[]> {
-    // TODO: Implement OpenAI API integration
-    throw new Error('OpenAI integration not yet implemented')
+  async generateSuggestion(request: AISuggestionRequest): Promise<AISuggestionResponse> {
+    const { command, description, prdContent, context, selection, prdTitle } = request
+    
+    const systemPrompt = `You are an expert product manager and technical writer. Your role is to help improve Product Requirements Documents (PRDs) by providing specific, actionable suggestions.
+
+When given a command and content, provide exactly one suggestion in the following JSON format:
+{
+  "type": "replacement|addition|summary|suggestions|analysis|general",
+  "title": "Brief descriptive title", 
+  "content": "The actual content/suggestion in markdown format",
+  "confidence": 0.85
+}
+
+Guidelines:
+- For @update: Improve clarity, add technical details, enhance structure
+- For @expand: Add implementation details, examples, technical considerations
+- For @summarize: Create concise summaries with key points
+- For @rewrite: Change tone, style, or target audience
+- For @suggest: Provide actionable recommendations for improvement
+- For @analyze: Identify strengths, weaknesses, and missing elements
+
+Always provide practical, specific suggestions that improve the PRD quality.`
+
+    const userPrompt = `Command: @${command} ${description || ''}
+PRD Title: ${prdTitle}
+Selected Text: ${selection || 'No text selected'}
+Context: ${context || 'No additional context'}
+
+Please provide a suggestion for improving this content.`
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify({
+          model: this.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          max_tokens: 1500,
+          temperature: 0.7
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(`OpenAI API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`)
+      }
+
+      const data = await response.json()
+      const content = data.choices[0]?.message?.content || 'No content generated'
+      const usage = data.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+
+      // Calculate cost
+      const inputCostPer1K = 0.01
+      const outputCostPer1K = 0.03
+      const costCents = Math.round(
+        (usage.prompt_tokens / 1000 * inputCostPer1K + 
+         usage.completion_tokens / 1000 * outputCostPer1K) * 100
+      )
+
+      // Try to parse as JSON first
+      let suggestions: AISuggestion[]
+      try {
+        const suggestion = JSON.parse(content)
+        suggestions = [suggestion]
+      } catch {
+        // If not JSON, create a structured response
+        suggestions = [{
+          type: this.getTypeFromCommand(command),
+          title: `${command.charAt(0).toUpperCase() + command.slice(1)} Suggestion`,
+          content: content,
+          confidence: 0.85
+        }]
+      }
+
+      return {
+        suggestions,
+        usage: {
+          inputTokens: usage.prompt_tokens,
+          outputTokens: usage.completion_tokens,
+          totalTokens: usage.total_tokens
+        },
+        model: this.model,
+        costCents
+      }
+    } catch (error) {
+      logger.error('OpenAI API error:', error)
+      throw error
+    }
+  }
+
+  private getSystemPrompt(type: string): string {
+    switch (type) {
+      case 'content':
+        return 'You are an expert product manager helping to create comprehensive PRD content. Provide detailed, structured content that follows PRD best practices.'
+      case 'section':
+        return 'You are an expert at creating specific PRD sections. Provide well-structured sections with clear headings, implementation details, and success criteria.'
+      case 'improvement':
+        return 'You are a product management consultant specializing in PRD improvements. Provide prioritized recommendations with clear impact assessments.'
+      case 'analysis':
+        return 'You are a senior product manager conducting PRD reviews. Provide thorough analysis with strengths, weaknesses, and actionable recommendations.'
+      default:
+        return 'You are an expert product manager helping to improve Product Requirements Documents. Provide clear, actionable, and well-structured content.'
+    }
+  }
+
+  private formatUserPrompt(prompt: string, type: string, context: string): string {
+    let formattedPrompt = `Please help me with the following request: ${prompt}`
+    
+    if (context) {
+      formattedPrompt += `\n\nContext: ${context}`
+    }
+
+    switch (type) {
+      case 'content':
+        formattedPrompt += '\n\nPlease provide comprehensive content that includes relevant details, proper structure, and actionable information.'
+        break
+      case 'section':
+        formattedPrompt += '\n\nPlease create a well-structured section with overview, implementation details, and success criteria.'
+        break
+      case 'improvement':
+        formattedPrompt += '\n\nPlease provide prioritized improvement suggestions with clear impact assessments.'
+        break
+      case 'analysis':
+        formattedPrompt += '\n\nPlease provide a thorough analysis with findings, recommendations, and risk assessment.'
+        break
+    }
+
+    return formattedPrompt
+  }
+
+  private getTypeFromCommand(command: string): AISuggestion['type'] {
+    switch (command) {
+      case 'update':
+      case 'rewrite':
+        return 'replacement'
+      case 'expand':
+        return 'addition'
+      case 'summarize':
+        return 'summary'
+      case 'suggest':
+        return 'suggestions'
+      case 'analyze':
+        return 'analysis'
+      default:
+        return 'general'
+    }
   }
 }
 
@@ -291,9 +553,10 @@ class AnthropicProvider implements AIProvider {
   
   constructor(private apiKey: string) {}
 
-  async generateContent(prompt: string, options?: AIGenerationOptions): Promise<string> {
+  async generateContent(prompt: string, options?: AIGenerationOptions): Promise<AIResponse> {
     const type = options?.type || 'content'
     const context = options?.context || ''
+    const model = 'claude-3-5-sonnet-20241022'
     
     const systemPrompt = this.getSystemPrompt(type)
     const userPrompt = this.formatUserPrompt(prompt, type, context)
@@ -307,9 +570,9 @@ class AnthropicProvider implements AIProvider {
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
-          max_tokens: 2000,
-          temperature: 0.7,
+          model,
+          max_tokens: options?.maxTokens || 2000,
+          temperature: options?.temperature || 0.7,
           system: systemPrompt,
           messages: [
             {
@@ -321,19 +584,41 @@ class AnthropicProvider implements AIProvider {
       })
 
       if (!response.ok) {
-        throw new Error(`Anthropic API error: ${response.status} ${response.statusText}`)
+        const errorData = await response.json()
+        throw new Error(`Anthropic API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`)
       }
 
       const data = await response.json()
-      return data.content[0].text || 'No content generated'
+      const content = data.content[0]?.text || 'No content generated'
+      const usage = data.usage || { input_tokens: 0, output_tokens: 0 }
+
+      // Calculate cost (Claude 3.5 Sonnet pricing as of 2024)
+      const inputCostPer1K = 0.003 // $0.003 per 1K input tokens
+      const outputCostPer1K = 0.015 // $0.015 per 1K output tokens
+      const costCents = Math.round(
+        (usage.input_tokens / 1000 * inputCostPer1K + 
+         usage.output_tokens / 1000 * outputCostPer1K) * 100
+      )
+
+      return {
+        content,
+        usage: {
+          inputTokens: usage.input_tokens,
+          outputTokens: usage.output_tokens,
+          totalTokens: usage.input_tokens + usage.output_tokens
+        },
+        model,
+        costCents
+      }
     } catch (error) {
-      console.error('Anthropic API error:', error)
+      logger.error('Anthropic API error:', error)
       throw error
     }
   }
 
-  async generateSuggestion(request: AISuggestionRequest): Promise<AISuggestion[]> {
+  async generateSuggestion(request: AISuggestionRequest): Promise<AISuggestionResponse> {
     const { command, description, prdContent, context, selection, prdTitle } = request
+    const model = 'claude-3-5-sonnet-20241022'
     
     const systemPrompt = `You are an expert product manager and technical writer. Your role is to help improve Product Requirements Documents (PRDs) by providing specific, actionable suggestions.
 
@@ -371,7 +656,7 @@ Please provide a suggestion for improving this content.`
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
+          model,
           max_tokens: 1500,
           temperature: 0.7,
           system: systemPrompt,
@@ -386,7 +671,7 @@ Please provide a suggestion for improving this content.`
 
       if (!response.ok) {
         const errorBody = await response.text()
-        console.error('Anthropic API error details:', {
+        logger.error('Anthropic API error details:', {
           status: response.status,
           statusText: response.statusText,
           body: errorBody
@@ -395,26 +680,47 @@ Please provide a suggestion for improving this content.`
       }
 
       const data = await response.json()
-      const content = data.content[0].text
+      const content = data.content[0]?.text || 'No content generated'
+      const usage = data.usage || { input_tokens: 0, output_tokens: 0 }
+
+      // Calculate cost
+      const inputCostPer1K = 0.003
+      const outputCostPer1K = 0.015
+      const costCents = Math.round(
+        (usage.input_tokens / 1000 * inputCostPer1K + 
+         usage.output_tokens / 1000 * outputCostPer1K) * 100
+      )
 
       // Try to parse as JSON first
+      let suggestions: AISuggestion[]
       try {
         const suggestion = JSON.parse(content)
-        return [suggestion]
+        suggestions = [suggestion]
       } catch {
         // If not JSON, create a structured response
-        return [{
+        suggestions = [{
           type: this.getTypeFromCommand(command),
           title: `${command.charAt(0).toUpperCase() + command.slice(1)} Suggestion`,
           content: content,
           confidence: 0.85
         }]
       }
+
+      return {
+        suggestions,
+        usage: {
+          inputTokens: usage.input_tokens,
+          outputTokens: usage.output_tokens,
+          totalTokens: usage.input_tokens + usage.output_tokens
+        },
+        model,
+        costCents
+      }
     } catch (error) {
-      console.error('Anthropic API error:', error)
+      logger.error('Anthropic API error:', error)
       
       // If API credits are low, provide helpful error message
-      if (error.message.includes('credit balance is too low')) {
+      if (error instanceof Error && error.message.includes('credit balance is too low')) {
         logger.warn('Anthropic API credits exhausted')
         throw new Error('AI service temporarily unavailable: API credit balance is too low. Please add credits to your Anthropic account.')
       }
@@ -508,8 +814,8 @@ export class AIService {
 
   async generateContent(
     prompt: string, 
-    options?: AIGenerationOptions & { provider?: string }
-  ): Promise<string> {
+    options?: AIGenerationOptions & { provider?: string; userId?: string; prdId?: string }
+  ): Promise<AIResponse> {
     const providerName = options?.provider || this.defaultProvider
     const provider = this.providers.get(providerName)
     
@@ -524,14 +830,33 @@ export class AIService {
         promptLength: prompt.length 
       })
       
-      const content = await provider.generateContent(prompt, options)
+      const response = await provider.generateContent(prompt, options)
       
       logger.info('AI content generated successfully', { 
         provider: providerName,
-        contentLength: content.length 
+        contentLength: response.content.length,
+        totalTokens: response.usage.totalTokens,
+        costCents: response.costCents
       })
       
-      return content
+      // Track AI usage in database if user/prd context provided
+      if (options?.userId) {
+        await this.trackAIUsage({
+          userId: options.userId,
+          prdId: options.prdId || null,
+          provider: providerName,
+          model: response.model,
+          inputTokens: response.usage.inputTokens,
+          outputTokens: response.usage.outputTokens,
+          totalTokens: response.usage.totalTokens,
+          costCents: response.costCents,
+          type: 'content_generation',
+          prompt: prompt.substring(0, 500), // Store truncated prompt for debugging
+          response: response.content.substring(0, 1000) // Store truncated response
+        })
+      }
+      
+      return response
     } catch (error) {
       logger.error('Failed to generate AI content', { 
         provider: providerName, 
@@ -542,9 +867,9 @@ export class AIService {
   }
 
   async generateSuggestion(
-    request: AISuggestionRequest,
+    request: AISuggestionRequest & { userId?: string; prdId?: string },
     provider?: string
-  ): Promise<AISuggestion[]> {
+  ): Promise<AISuggestionResponse> {
     const providerName = provider || this.defaultProvider
     const aiProvider = this.providers.get(providerName)
     
@@ -559,14 +884,33 @@ export class AIService {
         hasSelection: !!request.selection 
       })
       
-      const suggestions = await aiProvider.generateSuggestion(request)
+      const response = await aiProvider.generateSuggestion(request)
       
       logger.info('AI suggestions generated successfully', { 
         provider: providerName,
-        suggestionCount: suggestions.length 
+        suggestionCount: response.suggestions.length,
+        totalTokens: response.usage.totalTokens,
+        costCents: response.costCents
       })
       
-      return suggestions
+      // Track AI usage in database if user/prd context provided
+      if (request.userId) {
+        await this.trackAIUsage({
+          userId: request.userId,
+          prdId: request.prdId || null,
+          provider: providerName,
+          model: response.model,
+          inputTokens: response.usage.inputTokens,
+          outputTokens: response.usage.outputTokens,
+          totalTokens: response.usage.totalTokens,
+          costCents: response.costCents,
+          type: 'suggestion_generation',
+          prompt: `@${request.command} ${request.description || ''}`.substring(0, 500),
+          response: JSON.stringify(response.suggestions).substring(0, 1000)
+        })
+      }
+      
+      return response
     } catch (error) {
       logger.error('Failed to generate AI suggestions', { 
         provider: providerName, 
@@ -576,13 +920,23 @@ export class AIService {
       // Return development mock response when AI services are unavailable
       if (error instanceof Error && (error.message.includes('credit balance') || error.message.includes('API key'))) {
         logger.warn('AI service unavailable, returning development mock response')
-        return [{
-          type: this.getTypeFromCommand(request.command),
+        const mockSuggestions = [{
+          type: this.getTypeFromCommand(request.command) as AISuggestion['type'],
           title: `${request.command.charAt(0).toUpperCase() + request.command.slice(1)} Suggestion`,
           content: this.generateMockSuggestion(request),
-          confidence: 0.7,
-          isMock: true
+          confidence: 0.7
         }]
+        
+        return {
+          suggestions: mockSuggestions,
+          usage: {
+            inputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0
+          },
+          model: 'mock-fallback',
+          costCents: 0
+        }
       }
       
       throw error
@@ -652,16 +1006,111 @@ Recommendations:
     return suggestions[command] || `Mock suggestion for @${command} command. This demonstrates the expected response format when AI services are available.`
   }
 
+  private async trackAIUsage(data: {
+    userId: string
+    prdId: string | null
+    provider: string
+    model: string
+    inputTokens: number
+    outputTokens: number
+    totalTokens: number
+    costCents: number
+    type: string
+    prompt: string
+    response: string
+  }): Promise<void> {
+    try {
+      await prisma.aIInteraction.create({
+        data: {
+          userId: data.userId,
+          prdId: data.prdId,
+          provider: data.provider,
+          model: data.model,
+          inputTokens: data.inputTokens,
+          outputTokens: data.outputTokens,
+          totalTokens: data.totalTokens,
+          costCents: data.costCents,
+          type: data.type,
+          prompt: data.prompt,
+          response: data.response
+        }
+      })
+      
+      logger.debug('AI usage tracked successfully', {
+        userId: data.userId,
+        provider: data.provider,
+        totalTokens: data.totalTokens,
+        costCents: data.costCents
+      })
+    } catch (error) {
+      logger.error('Failed to track AI usage', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        userId: data.userId,
+        provider: data.provider
+      })
+    }
+  }
+
+  async getUsageStats(userId: string, timeframe?: { start: Date; end: Date }): Promise<{
+    totalInteractions: number
+    totalTokens: number
+    totalCostCents: number
+    byProvider: Record<string, { interactions: number; tokens: number; costCents: number }>
+    byType: Record<string, { interactions: number; tokens: number; costCents: number }>
+  }> {
+    const where = {
+      userId,
+      ...(timeframe && {
+        createdAt: {
+          gte: timeframe.start,
+          lte: timeframe.end
+        }
+      })
+    }
+
+    const interactions = await prisma.aIInteraction.findMany({ where })
+    
+    const stats = {
+      totalInteractions: interactions.length,
+      totalTokens: interactions.reduce((sum, i) => sum + i.totalTokens, 0),
+      totalCostCents: interactions.reduce((sum, i) => sum + i.costCents, 0),
+      byProvider: {} as Record<string, { interactions: number; tokens: number; costCents: number }>,
+      byType: {} as Record<string, { interactions: number; tokens: number; costCents: number }>
+    }
+
+    // Group by provider
+    interactions.forEach(interaction => {
+      if (!stats.byProvider[interaction.provider]) {
+        stats.byProvider[interaction.provider] = { interactions: 0, tokens: 0, costCents: 0 }
+      }
+      stats.byProvider[interaction.provider].interactions++
+      stats.byProvider[interaction.provider].tokens += interaction.totalTokens
+      stats.byProvider[interaction.provider].costCents += interaction.costCents
+    })
+
+    // Group by type
+    interactions.forEach(interaction => {
+      if (!stats.byType[interaction.type]) {
+        stats.byType[interaction.type] = { interactions: 0, tokens: 0, costCents: 0 }
+      }
+      stats.byType[interaction.type].interactions++
+      stats.byType[interaction.type].tokens += interaction.totalTokens
+      stats.byType[interaction.type].costCents += interaction.costCents
+    })
+
+    return stats
+  }
+
   private getTypeFromCommand(command: string): string {
     const typeMap = {
-      expand: 'expansion',
-      update: 'improvement', 
+      expand: 'addition',
+      update: 'replacement', 
       summarize: 'summary',
-      rewrite: 'rewrite',
-      suggest: 'suggestion',
+      rewrite: 'replacement',
+      suggest: 'suggestions',
       analyze: 'analysis'
     }
-    return typeMap[command] || 'suggestion'
+    return typeMap[command] || 'general'
   }
 }
 

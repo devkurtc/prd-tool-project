@@ -77,19 +77,24 @@ router.post('/suggestion', asyncHandler(async (req: AuthenticatedRequest, res: R
   const [, commandType, description] = commandMatch
   
   // Generate AI suggestions using the AI service
-  const suggestions = await aiService.generateSuggestion({
+  const response = await aiService.generateSuggestion({
     command: commandType,
     description: description || '',
     prdContent: prd.content,
     context: context || '',
     selection: selection?.text || '',
-    prdTitle: prd.title
+    prdTitle: prd.title,
+    userId,
+    prdId
   })
 
   res.json({
     success: true,
     data: {
-      suggestions,
+      suggestions: response.suggestions,
+      usage: response.usage,
+      model: response.model,
+      costCents: response.costCents,
       command: commandType,
       description,
       timestamp: new Date().toISOString()
@@ -114,15 +119,19 @@ router.post('/generate', asyncHandler(async (req: AuthenticatedRequest, res: Res
     userId 
   })
 
-  const content = await aiService.generateContent(prompt, {
+  const response = await aiService.generateContent(prompt, {
     type,
-    context: context || ''
+    context: context || '',
+    userId
   })
 
   res.json({
     success: true,
     data: {
-      content,
+      content: response.content,
+      usage: response.usage,
+      model: response.model,
+      costCents: response.costCents,
       type,
       timestamp: new Date().toISOString()
     }
@@ -182,6 +191,35 @@ router.get('/status', asyncHandler(async (req: AuthenticatedRequest, res: Respon
       currentProvider: aiService.getCurrentProvider(),
       availableProviders: aiService.getAvailableProviders(),
       timestamp: new Date().toISOString()
+    }
+  })
+}))
+
+// GET /api/ai/usage - Get AI usage statistics for current user
+router.get('/usage', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user!.userId
+  const { days = '30' } = req.query
+  
+  const daysNum = parseInt(days as string)
+  const startDate = new Date()
+  startDate.setDate(startDate.getDate() - daysNum)
+  
+  logger.info('AI usage request', { userId, days: daysNum })
+  
+  const stats = await aiService.getUsageStats(userId, {
+    start: startDate,
+    end: new Date()
+  })
+  
+  res.json({
+    success: true,
+    data: {
+      ...stats,
+      timeframe: {
+        days: daysNum,
+        start: startDate.toISOString(),
+        end: new Date().toISOString()
+      }
     }
   })
 }))

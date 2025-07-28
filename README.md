@@ -3,14 +3,15 @@
 ## Overview
 A collaborative, AI-driven platform for Product Owners to create, manage, and version Product Requirements Documents (PRDs) with real-time collaboration and Git-based version control.
 
-## 🚀 Current Status: **MVP Backend Ready**
+## 🚀 Current Status: **Full-Stack MVP with Collaboration**
 
 ✅ **Production-Ready Backend** with comprehensive API documentation and testing
 ✅ **Swagger Documentation** at `/api-docs` with interactive testing  
 ✅ **Automated Testing Suite** with 17+ test cases and CI/CD integration
 ✅ **JWT Authentication** with secure user management
 ✅ **PRD Management APIs** with full CRUD operations
-🔄 **Frontend Integration** - Currently being updated to match backend changes
+✅ **Multi-User Collaboration** with role-based permissions
+✅ **Frontend Integration** - Authentication and PRD management working
 
 ## Project Structure
 ```
@@ -89,15 +90,21 @@ npm run dev
 ### **Backend APIs**
 - ✅ **Authentication System**: Registration, login, JWT tokens
 - ✅ **PRD Management**: CRUD operations with filtering & pagination
+- ✅ **Multi-User Collaboration**: Role-based access control (VIEWER, EDITOR, ADMIN)
+- ✅ **Collaborator Management**: Add/remove collaborators via API
+- ✅ **Permission System**: Authors and editors can modify PRDs
 - ✅ **Swagger Documentation**: Interactive API testing
 - ✅ **Automated Testing**: 17+ test cases with CI/CD
 - ✅ **Production Ready**: Error handling, validation, logging
 
-### **Frontend (In Progress)**
-- 🔄 **React + TypeScript**: Modern UI components
+### **Frontend**
+- ✅ **React + TypeScript**: Modern UI components
+- ✅ **Authentication UI**: Login/register forms working
+- ✅ **PRD Dashboard**: View and manage PRDs
+- ✅ **User Management**: Profile and statistics display
+- ✅ **Error Handling**: Robust error boundaries and validation
 - 🔄 **Monaco Editor**: Code editing experience
 - 🔄 **Real-time Features**: WebSocket integration
-- 🔄 **Authentication UI**: Login/register forms
 
 ### **DevOps & Quality**
 - ✅ **GitHub Actions**: Automated testing workflow
@@ -121,19 +128,54 @@ npm run dev
 - **Version Control**: Git integration
 - **File Upload**: Document attachments
 
+## 🤝 Collaboration Features
+
+### **Multi-User Access Control**
+- **Authors**: Full control over their PRDs (create, edit, delete, manage collaborators)
+- **Collaborators**: Role-based permissions system
+  - **VIEWER**: Read-only access to PRDs
+  - **EDITOR**: Can view and edit PRD content
+  - **ADMIN**: Can view, edit, and manage other collaborators
+
+### **Collaboration APIs**
+```bash
+# Add a collaborator
+POST /api/prds/{id}/collaborators
+{
+  "email": "user@example.com",
+  "role": "EDITOR"
+}
+
+# Remove a collaborator
+DELETE /api/prds/{id}/collaborators/{userId}
+
+# View collaborators (included in PRD responses)
+GET /api/prds/{id}
+```
+
+### **Permission Matrix**
+| Action | Author | Admin Collaborator | Editor Collaborator | Viewer Collaborator |
+|--------|--------|-------------------|-------------------|-------------------|
+| View PRD | ✅ | ✅ | ✅ | ✅ |
+| Edit PRD | ✅ | ✅ | ✅ | ❌ |
+| Delete PRD | ✅ | ❌ | ❌ | ❌ |
+| Add Collaborators | ✅ | ✅ | ❌ | ❌ |
+| Remove Collaborators | ✅ | ✅ | ❌ | ❌ |
+
 ## 🎯 Next Milestones
 
-1. **Frontend-Backend Integration** (Current)
-   - Connect frontend to real authentication
-   - Implement PRD management UI
-   - Replace mock data with API calls
+1. **UI/UX Improvements** (Current)
+   - Enhanced PRD editor with Monaco
+   - Collaboration UI for managing collaborators
+   - Real-time presence indicators
 
 2. **AI Features** (Next)
    - AI-powered PRD generation
    - Content suggestions and improvements
    - Automated documentation
 
-3. **Collaboration** (Future)
-   - Real-time editing
-   - User presence and cursors
+3. **Advanced Collaboration** (Future)
+   - Real-time editing with presence awareness
+   - User cursors and typing indicators
    - Comment and review system
+   - Version control with Git integration
